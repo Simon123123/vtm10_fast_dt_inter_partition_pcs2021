@@ -102,6 +102,11 @@ struct Picture : public UnitArea
   void create( const ChromaFormat &_chromaFormat, const Size &size, const unsigned _maxCUSize, const unsigned margin, const bool bDecoder, const int layerId );
   void destroy();
 
+#if FEATURE_TEST
+  void createMv(const ChromaFormat& _chromaFormat, const Size& size, const unsigned _maxCUSize, const unsigned margin, const bool bDecoder, const int layerId);
+  void destroyMv();
+#endif
+
   void createTempBuffers( const unsigned _maxCUSize );
   void destroyTempBuffers();
 
@@ -127,6 +132,14 @@ struct Picture : public UnitArea
   const CPelBuf     getResiBuf(const CompArea &blk) const;
          PelUnitBuf getResiBuf(const UnitArea &unit);
   const CPelUnitBuf getResiBuf(const UnitArea &unit) const;
+
+#if FEATURE_TEST
+		Mv*    getMvArray();
+  const Mv*    getMvArray() const;
+        int* getSADErr();
+  const int* getSADErr() const;
+#endif
+
 
          PelBuf     getRecoBuf(const ComponentID compID, bool wrap=false);
   const CPelBuf     getRecoBuf(const ComponentID compID, bool wrap=false) const;
@@ -248,6 +261,10 @@ public:
   PelStorage m_bufs[PARL_SPLIT_MAX_NUM_JOBS][NUM_PIC_TYPES];
 #else
   PelStorage m_bufs[NUM_PIC_TYPES];
+#if FEATURE_TEST
+  Mv* mvArray;
+  int* sadErrArray;
+#endif
 #endif
   const Picture*           unscaledPic;
 

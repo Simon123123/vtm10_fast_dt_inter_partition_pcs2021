@@ -224,6 +224,26 @@ void Picture::create( const ChromaFormat &_chromaFormat, const Size &size, const
   m_hashMap.clearAll();
 }
 
+#if FEATURE_TEST
+void Picture::createMv(const ChromaFormat& _chromaFormat, const Size& size, const unsigned _maxCUSize, const unsigned _margin, const bool _decoder, const int _layerId)
+{
+	unsigned extHeight = size.height;
+	unsigned extWidth = size.width;
+	uint32_t area = (extWidth )* (extHeight) /16;
+	mvArray = (Mv*)xMalloc(Mv, area);
+	for (int i = 0; i < area; i++)
+	{
+		mvArray[i] = Mv(0, 0);
+	}
+	sadErrArray = (int*)xMalloc(int, area);
+	for (int i = 0; i < area; i++)
+	{
+		sadErrArray[i] = 0;
+	}
+}
+#endif
+
+
 void Picture::destroy()
 {
 #if ENABLE_SPLIT_PARALLELISM
@@ -261,6 +281,16 @@ void Picture::destroy()
     }
   }
 }
+
+#if FEATURE_TEST
+void Picture::destroyMv()
+{
+	xFree(mvArray);
+	mvArray = nullptr;
+	xFree(sadErrArray);
+	sadErrArray = nullptr;
+}
+#endif
 
 void Picture::createTempBuffers( const unsigned _maxCUSize )
 {
@@ -343,6 +373,15 @@ const CPelUnitBuf Picture::getPredBuf(const UnitArea &unit) const { return getBu
 const CPelBuf     Picture::getResiBuf(const CompArea &blk)  const { return getBuf(blk,  PIC_RESIDUAL); }
        PelUnitBuf Picture::getResiBuf(const UnitArea &unit)       { return getBuf(unit, PIC_RESIDUAL); }
 const CPelUnitBuf Picture::getResiBuf(const UnitArea &unit) const { return getBuf(unit, PIC_RESIDUAL); }
+
+
+#if FEATURE_TEST
+	   Mv*     Picture::getMvArray() { return mvArray; }
+const  Mv*     Picture::getMvArray()  const { return mvArray; }
+       int*    Picture::getSADErr() { return sadErrArray; }
+const  int*    Picture::getSADErr()  const { return sadErrArray; }
+#endif
+
 
        PelBuf     Picture::getRecoBuf(const ComponentID compID, bool wrap)       { return getBuf(compID,                    wrap ? PIC_RECON_WRAP : PIC_RECONSTRUCTION); }
 const CPelBuf     Picture::getRecoBuf(const ComponentID compID, bool wrap) const { return getBuf(compID,                    wrap ? PIC_RECON_WRAP : PIC_RECONSTRUCTION); }

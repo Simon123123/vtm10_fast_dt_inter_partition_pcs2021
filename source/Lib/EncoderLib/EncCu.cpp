@@ -1319,7 +1319,9 @@ void EncCu::xCheckModeSplit(CodingStructure *&tempCS, CodingStructure *&bestCS, 
 
       if( bestSubCS->cost == MAX_DOUBLE )
       {
+#if !DISABLE_QT_NULL_CU_CHECK
         CHECK( split == CU_QUAD_SPLIT, "Split decision reusing cannot skip quad split" );
+#endif
         tempCS->cost = MAX_DOUBLE;
         tempCS->costDbOffset = 0;
         tempCS->useDbCost = m_pcEncCfg->getUseEncDbOpt();

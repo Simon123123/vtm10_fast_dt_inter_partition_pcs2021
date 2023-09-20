@@ -49,6 +49,19 @@
 
 #include <cmath>
 
+
+#if COLLECT_DATASET
+void WriteFormatted_features ( FILE* f, const char * format, ... )
+{
+  va_list args;
+  va_start ( args, format );
+  vfprintf ( f, format, args );
+  fflush( f );
+  va_end ( args );
+}
+#endif
+
+
 void EncModeCtrl::init( EncCfg *pCfg, RateCtrl *pRateCtrl, RdCost* pRdCost )
 {
   m_pcEncCfg      = pCfg;
@@ -1173,6 +1186,21 @@ void EncModeCtrlMTnoRQT::initCULevel( Partitioner &partitioner, const CodingStru
   cuECtx.set( DID_QUAD_SPLIT,       false );
   cuECtx.set( IS_BEST_NOSPLIT_SKIP, false );
   cuECtx.set( MAX_QT_SUB_DEPTH,     0 );
+#if  FEATURE_TEST
+  cuECtx.set(BEST_QT_COST, MAX_DOUBLE);
+  cuECtx.set(NO_SPLIT_FLAG, 2);
+  cuECtx.set(QT_FLAG, 2);
+  cuECtx.set(HOR_FLAG, 2);
+#endif
+#if DISABLE_RF_IF_EMPTY_CU_WHEN_FULL
+  cuECtx.set(EMPTY_CU_WHEN_FULL, false);
+#endif
+#if FEATURE_TEST
+  cuECtx.set(IS_NON_SPLIT_INTRA, false);
+  cuECtx.set(IS_NON_SPLIT_INTER, false);
+  cuECtx.set(IS_NON_SPLIT_MERGE, false);
+  cuECtx.set(IS_NON_SPLIT_GEO, false);
+#endif
 
   // QP
   int baseQP = cs.baseQP;
@@ -1315,7 +1343,11 @@ void EncModeCtrlMTnoRQT::initCULevel( Partitioner &partitioner, const CodingStru
     const int  qp       = std::max( qpLoop, lowestQP );
 #if REUSE_CU_RESULTS
     const bool isReusingCu = isValid( cs, partitioner, qp );
+#if DISABLE_CU_CACHING
+	cuECtx.set(IS_REUSING_CU, false);
+#else
     cuECtx.set( IS_REUSING_CU, isReusingCu );
+#endif
     if( isReusingCu )
     {
       m_ComprCUCtxList.back().testModes.push_back( {ETM_RECO_CACHED, ETO_STANDARD, qp} );
@@ -1400,6 +1432,9 @@ void EncModeCtrlMTnoRQT::initCULevel( Partitioner &partitioner, const CodingStru
   }
 
   // ensure to skip unprobable modes
+#if FEATURE_TEST
+  m_ComprCUCtxList.back().testModes.push_back({ IS_FIRST_MODE });
+#endif
   if( !tryModeMaster( m_ComprCUCtxList.back().testModes.back(), cs, partitioner ) )
   {
     nextMode( cs, partitioner );
@@ -1418,6 +1453,747 @@ bool EncModeCtrlMTnoRQT::tryMode( const EncTestMode& encTestmode, const CodingSt
 {
   ComprCUCtx& cuECtx = m_ComprCUCtxList.back();
 
+#if FEATURE_TEST
+  const CompArea& currArea = partitioner.currArea().Y();
+  int ht = currArea.height, wd = currArea.width;
+
+  int sizeIndex = 28;
+  switch (wd)
+  {
+  case 128:
+	  switch (ht)
+	  {
+	  case 128:
+		  sizeIndex = 27;
+		  break;
+	  case 64:
+		  sizeIndex = 26;
+		  break;
+	  }
+	  break;
+  case 64:
+	  switch (ht)
+	  {
+	  case 128:
+		  sizeIndex = 25;
+		  break;
+	  case 64:
+		  sizeIndex = 24;
+		  break;
+	  case 32:
+		  sizeIndex = 23;
+		  break;
+	  case 16:
+		  sizeIndex = 20;
+		  break;
+	  case 8:
+		  sizeIndex = 15;
+		  break;
+	  }
+	  break;
+  case 32:
+	  switch (ht)
+	  {
+	  case 64:
+		  sizeIndex = 22;
+		  break;
+	  case 32:
+		  sizeIndex = 21;
+		  break;
+	  case 16:
+		  sizeIndex = 18;
+		  break;
+	  case 8:
+		  sizeIndex = 13;
+		  break;
+	  }
+	  break;
+  case 16:
+	  switch (ht)
+	  {
+	  case 64:
+		  sizeIndex = 19;
+		  break;
+	  case 32:
+		  sizeIndex = 17;
+		  break;
+	  case 16:
+		  sizeIndex = 16;
+		  break;
+	  case 8:
+		  sizeIndex = 11;
+		  break;
+	  }
+	  break;
+  case 8:
+	  switch (ht)
+	  {
+	  case 64:
+		  sizeIndex = 14;
+		  break;
+	  case 32:
+		  sizeIndex = 12;
+		  break;
+	  case 16:
+		  sizeIndex = 10;
+		  break;
+	  case 8:
+		  sizeIndex = 9;
+		  break;
+	  }
+	  break;
+  }
+
+  if (encTestmode.type == ETM_POST_DONT_SPLIT)
+  {
+
+#if COLLECT_DATASET
+    bool frame_collect =  ((cs.slice->getPOC() % 3 == 0) && (cs.slice->getPic()->lheight() == 544 || cs.slice->getPic()->lheight() == 240)) || ((cs.slice->getPic()->lheight() == 1088 || cs.slice->getPic()->lheight() == 2176 || cs.slice->getPic()->lheight() == 720) && (cs.slice->getPOC() == 8 || cs.slice->getPOC() == 16 || cs.slice->getPOC() == 28 || cs.slice->getPOC() == 42 || cs.slice->getPOC() == 49 || cs.slice->getPOC() == 57));
+
+    if (cs.slice->getSliceType() != I_SLICE && frame_collect && cs.treeType != TREE_C)
+#else
+    if (cs.slice->getSliceType() != I_SLICE && cs.treeType != TREE_C)
+#endif
+	  {
+		  if (sizeIndex == 28)
+			  return false;
+
+		  int qp = cs.baseQP;
+
+		  const CompArea& currArea = partitioner.currArea().Y();
+		  int ht = currArea.height,  wd = currArea.width;
+		  if ((ht + partitioner.currArea().Y().lumaPos().y >= cs.slice->getPic()->lheight()) || (wd + partitioner.currArea().Y().lumaPos().x >= cs.slice->getPic()->lwidth()))
+		  {
+			  return false;
+		  }
+		  const CPelBuf orgPel = cs.getOrgBuf(partitioner.currArea().block(COMPONENT_Y)); //cs.getOrgBuf(cs.area.blocks[COMPONENT_Y]);
+		  int halfW = max(wd / 2, 4), halfH = max(ht / 2, 4);
+		  double sum = 0, squaredSum = 0, totalSum = 0, totalSquaredSum = 0;
+
+
+		  for (int y = 0; y < halfH; y++)
+		  {
+			  for (int x = 0; x < halfW; x++)
+			  {
+				  const Pel* ptrOrg = orgPel.bufAt(x, y);
+				  sum += (int)* ptrOrg;  squaredSum += ((int)* ptrOrg) * ((int)* ptrOrg);
+			  }
+		  }
+		  double aveTopL = (double)sum / (double)(halfH * halfW);
+		  double varTopL = ((double)(squaredSum) / (double)(halfH * halfW)) - (aveTopL * aveTopL);
+		  totalSum += sum;  totalSquaredSum += squaredSum;
+		  double _squaredSumPixTopL = squaredSum, _sumPixTopL = sum;
+
+		  sum = 0, squaredSum = 0;
+		  for (int y = 0; y < halfH; y++)
+		  {
+			  for (int x = halfW; x < wd; x++)
+			  {
+				  const Pel* ptrOrg = orgPel.bufAt(x, y);
+				  sum += (int)* ptrOrg;  squaredSum += ((int)* ptrOrg) * ((int)* ptrOrg);
+			  }
+		  }
+		  double aveTopR = (double)sum / (double)(halfH * halfW);
+		  double varTopR = ((double)(squaredSum) / (double)(halfH * halfW)) - (aveTopR * aveTopR);
+		  totalSum += sum;  totalSquaredSum += squaredSum;
+		  double _squaredSumPixTopR = squaredSum, _sumPixTopR = sum;
+
+		  sum = 0, squaredSum = 0;
+		  for (int y = halfH; y < ht; y++)
+		  {
+			  for (int x = 0; x < halfW; x++)
+			  {
+				  const Pel* ptrOrg = orgPel.bufAt(x, y);
+				  sum += (int)* ptrOrg;  squaredSum += ((int)* ptrOrg) * ((int)* ptrOrg);
+			  }
+		  }
+		  double aveBotL = (double)sum / (double)(halfH * halfW);
+		  double varBotL = ((double)(squaredSum) / (double)(halfH * halfW)) - (aveBotL * aveBotL);
+		  totalSum += sum;  totalSquaredSum += squaredSum;
+		  double _squaredSumPixBotL = squaredSum, _sumPixBotL= sum;
+
+		  sum = 0, squaredSum = 0;
+		  for (int y = halfH; y < ht; y++)
+		  {
+			  for (int x = halfW; x < wd; x++)
+			  {
+				  const Pel* ptrOrg = orgPel.bufAt(x, y);
+				  sum += (int)* ptrOrg;  squaredSum += ((int)* ptrOrg) * ((int)* ptrOrg);
+			  }
+		  }
+		  double aveBotR = (double)sum / (double)(halfH * halfW);
+		  double varBotR = ((double)(squaredSum) / (double)(halfH * halfW)) - (aveBotR * aveBotR);
+		  totalSum += sum;  totalSquaredSum += squaredSum;
+		  double _squaredSumPixBotR = squaredSum, _sumPixBotR = sum;
+
+		  double ave = ((double)totalSum / (double)(ht * wd));                       //redundant
+		  double var = ((double)(totalSquaredSum) / (double)(ht * wd)) - (ave * ave);
+
+		  double gradHor = 0.0, gradVer = 0.0;
+		  double gradHorTopL = 0.0, gradVerTopL = 0.0;
+		  double sobel = 0.0;
+		  double sobelTopL = 0.0;
+		  for (int y = 0; y < halfH - 1; y++)
+		  {
+			  for (int x = 0; x < halfW - 1; x++)
+			  {
+				  gradHorTopL += abs(orgPel.at(x + 1, y) - orgPel.at(x, y));
+				  gradVerTopL += abs(orgPel.at(x, y + 1) - orgPel.at(x, y));
+				  if (x >= 1 && y >= 1)
+				  {
+					  double x_sum = (orgPel.at(x - 1, y + 1) + 2 * orgPel.at(x, y + 1) + orgPel.at(x + 1, y + 1))
+						  - (orgPel.at(x - 1, y - 1) + 2 * orgPel.at(x, y - 1) + orgPel.at(x + 1, y - 1));
+					  double y_sum = (orgPel.at(x + 1, y - 1) + 2 * orgPel.at(x + 1, y) + orgPel.at(x + 1, y + 1))
+						  - (orgPel.at(x - 1, y - 1) + 2 * orgPel.at(x - 1, y) + orgPel.at(x - 1, y + 1));
+					  sobelTopL += ((x_sum) * (x_sum)) + ((y_sum) * (y_sum));
+				  }
+			  }
+		  }
+		  sobel += sobelTopL;
+		  sobelTopL = sobelTopL / ((halfH - 2) * (halfW - 2));
+		  gradHor += gradHorTopL;   gradVer += gradVerTopL;
+		  gradHorTopL = gradHorTopL / ((halfH - 1) * (halfW - 1));
+		  gradVerTopL = gradVerTopL / ((halfH - 1) * (halfW - 1));
+
+
+		  double gradHorTopR = 0.0, gradVerTopR = 0.0;
+		  double sobelTopR = 0.0;
+		  for (int y = 0; y < halfH - 1; y++)
+		  {
+			  for (int x = halfW; x < wd - 1; x++)
+			  {
+				  gradHorTopR += abs(orgPel.at(x + 1, y) - orgPel.at(x, y));
+				  gradVerTopR += abs(orgPel.at(x, y + 1) - orgPel.at(x, y));
+				  if (x >= 1 && y >= 1)
+				  {
+					  double x_sum = (orgPel.at(x - 1, y + 1) + 2 * orgPel.at(x, y + 1) + orgPel.at(x + 1, y + 1))
+						  - (orgPel.at(x - 1, y - 1) + 2 * orgPel.at(x, y - 1) + orgPel.at(x + 1, y - 1));
+					  double y_sum = (orgPel.at(x + 1, y - 1) + 2 * orgPel.at(x + 1, y) + orgPel.at(x + 1, y + 1))
+						  - (orgPel.at(x - 1, y - 1) + 2 * orgPel.at(x - 1, y) + orgPel.at(x - 1, y + 1));
+					  sobelTopR += ((x_sum) * (x_sum)) + ((y_sum) * (y_sum));
+				  }
+			  }
+		  }
+		  sobel += sobelTopR;
+		  sobelTopR = sobelTopR / ((halfH - 2) * (halfW - 2));
+		  gradHor += gradHorTopR;   gradVer += gradVerTopR;
+		  gradHorTopR = gradHorTopR / ((halfH - 1) * (halfW - 1));
+		  gradVerTopR = gradVerTopR / ((halfH - 1) * (halfW - 1));
+
+
+		  double gradHorBotL = 0.0, gradVerBotL = 0.0;
+		  double sobelBotL = 0.0;
+		  for (int y = halfH; y < ht - 1; y++)
+		  {
+			  for (int x = 0; x < halfW - 1; x++)
+			  {
+				  gradHorBotL += abs(orgPel.at(x + 1, y) - orgPel.at(x, y));
+				  gradVerBotL += abs(orgPel.at(x, y + 1) - orgPel.at(x, y));
+				  if (x >= 1 && y >= 1)
+				  {
+					  double x_sum = (orgPel.at(x - 1, y + 1) + 2 * orgPel.at(x, y + 1) + orgPel.at(x + 1, y + 1))
+						  - (orgPel.at(x - 1, y - 1) + 2 * orgPel.at(x, y - 1) + orgPel.at(x + 1, y - 1));
+					  double y_sum = (orgPel.at(x + 1, y - 1) + 2 * orgPel.at(x + 1, y) + orgPel.at(x + 1, y + 1))
+						  - (orgPel.at(x - 1, y - 1) + 2 * orgPel.at(x - 1, y) + orgPel.at(x - 1, y + 1));
+					  sobelBotL += ((x_sum) * (x_sum)) + ((y_sum) * (y_sum));
+				  }
+			  }
+		  }
+		  sobel += sobelBotL;
+		  sobelBotL = sobelBotL / ((halfH - 2) * (halfW - 2));
+		  gradHor += gradHorBotL;   gradVer += gradVerBotL;
+		  gradHorBotL = gradHorBotL / ((halfH - 1) * (halfW - 1));
+		  gradVerBotL = gradVerBotL / ((halfH - 1) * (halfW - 1));
+
+
+		  double sobelBotR = 0.0;
+		  double gradHorBotR = 0.0, gradVerBotR = 0.0;
+		  for (int y = halfH; y < ht - 1; y++)
+		  {
+			  for (int x = halfW; x < wd - 1; x++)
+			  {
+				  gradHorBotR += abs(orgPel.at(x + 1, y) - orgPel.at(x, y));
+				  gradVerBotR += abs(orgPel.at(x, y + 1) - orgPel.at(x, y));
+				  if (x >= 1 && y >= 1)
+				  {
+					  double x_sum = (orgPel.at(x - 1, y + 1) + 2 * orgPel.at(x, y + 1) + orgPel.at(x + 1, y + 1))
+						  - (orgPel.at(x - 1, y - 1) + 2 * orgPel.at(x, y - 1) + orgPel.at(x + 1, y - 1));
+					  double y_sum = (orgPel.at(x + 1, y - 1) + 2 * orgPel.at(x + 1, y) + orgPel.at(x + 1, y + 1))
+						  - (orgPel.at(x - 1, y - 1) + 2 * orgPel.at(x - 1, y) + orgPel.at(x - 1, y + 1));
+					  sobelBotR += ((x_sum) * (x_sum)) + ((y_sum) * (y_sum));
+				  }
+			  }
+		  }
+		  sobel += sobelBotR;
+		  sobelBotR = sobelBotR / ((halfH - 2) * (halfW - 2));
+		  gradHor += gradHorBotR;   gradVer += gradVerBotR;
+		  gradHorBotR = gradHorBotR / ((halfH - 1) * (halfW - 1));
+		  gradVerBotR = gradVerBotR / ((halfH - 1) * (halfW - 1));
+
+
+		  for (int y = 0; y < ht - 1; y++)
+		  {
+			  gradHor += abs(orgPel.at(halfW , y) - orgPel.at(halfW - 1, y));
+			  if (y >= 1)
+			  {
+				  double x_sum = (orgPel.at(halfW - 1, y + 1) + 2 * orgPel.at(halfW, y + 1) + orgPel.at(halfW + 1, y + 1))
+					  - (orgPel.at(halfW - 1, y - 1) + 2 * orgPel.at(halfW, y - 1) + orgPel.at(halfW + 1, y - 1));
+				  double y_sum = (orgPel.at(halfW + 1, y - 1) + 2 * orgPel.at(halfW + 1, y) + orgPel.at(halfW + 1, y + 1))
+					  - (orgPel.at(halfW - 1, y - 1) + 2 * orgPel.at(halfW - 1, y) + orgPel.at(halfW - 1, y + 1));
+				  sobel += ((x_sum) * (x_sum)) + ((y_sum) * (y_sum));
+			  }
+		  }
+		  for (int x = 0; x < wd - 1; x++)
+		  {
+			  gradVer += abs(orgPel.at(x, halfH) - orgPel.at(x, halfH - 1));
+			  if (x >= 1)
+			  {
+				  double x_sum = (orgPel.at(x - 1, halfH + 1) + 2 * orgPel.at(x, halfH + 1) + orgPel.at(x + 1, halfH + 1))
+					  - (orgPel.at(x - 1, halfH - 1) + 2 * orgPel.at(x, halfH - 1) + orgPel.at(x + 1, halfH - 1));
+				  double y_sum = (orgPel.at(x + 1, halfH - 1) + 2 * orgPel.at(x + 1, halfH) + orgPel.at(x + 1, halfH + 1))
+					  - (orgPel.at(x - 1, halfH - 1) + 2 * orgPel.at(x - 1, halfH) + orgPel.at(x - 1, halfH + 1));
+				  sobel += ((x_sum) * (x_sum)) + ((y_sum) * (y_sum));
+			  }
+		  }
+		  gradHor = gradHor / ((ht - 1) * (wd - 1));
+		  gradVer = gradVer / ((ht - 1) * (wd - 1));
+		  sobel = sobel / ((ht - 2) * (wd - 2));
+
+		  double gradRatio = gradHor / gradVer;
+
+		  //const CPelBuf refPel = cs.slice->getRefPic(REF_PIC_LIST_0, 0)->getRecoBuf(cs.area.blocks[COMPONENT_Y]);
+		  //int distScale = (cs.slice->getPOC() - cs.slice->getRefPic(REF_PIC_LIST_0, 0)->getPOC());
+		  Mv* mvArray = cs.slice->getPic()->getMvArray();  
+		  Mv* mvPtr;
+		  double sumX = 0, squaredSumX = 0, sumY = 0, squaredSumY = 0;
+
+		  int mvX[32][32], mvY[32][32];
+		  int* sadArray = cs.slice->getPic()->getSADErr();
+		  int* sadPtr;
+		  int sadError[32][32];
+		  double sumSAD = 0, squaredSumSAD = 0;
+		  double squaredMul = 0;// mvMul = 0;
+		  int x_cor = currArea.lumaPos().x, y_cor = currArea.lumaPos().y, picWd = cs.slice->getPic()->lwidth(), picHt = cs.slice->getPic()->lheight();
+
+		  for (int y = 0; y < ht; y = y + 4)
+		  {
+			  for (int x = 0; x < wd; x = x + 4)
+			  {
+				  mvPtr = mvArray + ((y_cor + y) / 4) * (picWd / 4) + ((x_cor + x) / 4);
+				  int bestX = (*mvPtr).getHor(), bestY = (*mvPtr).getVer();
+
+				  sumX += bestX;  squaredSumX += (bestX * bestX);  sumY += bestY;  squaredSumY += (bestY * bestY);
+				  mvX[y / 4][x / 4] = bestX;  mvY[y / 4][x / 4] = bestY;
+
+				  sadPtr = sadArray + ((y_cor + y) / 4) * (picWd / 4) + ((x_cor + x) / 4);
+				  int bestSAD = (*sadPtr);
+
+				  sumSAD += bestSAD;  squaredSumSAD += (bestSAD * bestSAD);
+				  sadError[y / 4][x / 4] = bestSAD;
+				  squaredMul += (bestX * bestY) * (bestX * bestY);
+			  }
+		  }
+
+
+		  double varMVX = ((double)(squaredSumX * 16) / (double)(ht * wd)) - (((double)(sumX * 16) / (double)(ht * wd)) * ((double)(sumX * 16) / (double)(ht * wd)));
+		  double varMVY = ((double)(squaredSumY * 16) / (double)(ht * wd)) - (((double)(sumY * 16) / (double)(ht * wd)) * ((double)(sumY * 16) / (double)(ht * wd)));
+		  //double VarMv = varMVX + varMVY;
+
+		  double varSAD = ((double)(squaredSumSAD * 16) / (double)(ht * wd)) - (((double)(sumSAD * 16) / (double)(ht * wd)) * ((double)(sumSAD * 16) / (double)(ht * wd)));
+		  double aveSAD = (double)(sumSAD * 16) / (double)(halfH * halfW);
+
+		  double widthFactor = (double)picWd / (double)416;
+		  double heightFactor = (double)picHt / (double)240;
+
+		  double varMVXScaled = varMVX / (widthFactor * widthFactor);
+		  double varMVYScaled = varMVY / (heightFactor * heightFactor);
+		  double VarMvScaled = varMVXScaled + varMVYScaled;
+
+		  double a = squaredSumX, b = squaredMul, c = squaredMul, d = squaredSumY;
+		  double eigenDifference = (((a + d) * (a + d)) - (4 * (a * d - b * c))) / ((a + d) * (a + d));
+
+		  double aveX = (double)(sumX * 16) / (double)(ht * wd);
+		  double aveY = (double)(sumY * 16) / (double)(ht * wd);
+
+		  sumX = 0, squaredSumX = 0, sumY = 0, squaredSumY = 0;
+		  sumSAD = 0, squaredSumSAD = 0, squaredMul = 0;
+		  for (int ii = 0; ii < ((halfH / 4)); ii++)
+		  {
+			  for (int jj = 0; jj < ((halfW / 4)); jj++)
+			  {
+				  sumX += mvX[ii][jj]; sumY += mvY[ii][jj];
+				  squaredSumX += (mvX[ii][jj] * mvX[ii][jj]); squaredSumY += (mvY[ii][jj] * mvY[ii][jj]);
+				  sumSAD += sadError[ii][jj];
+				  squaredSumSAD += (sadError[ii][jj] * sadError[ii][jj]);
+				  squaredMul += (mvX[ii][jj] * mvY[ii][jj]) * (mvX[ii][jj] * mvY[ii][jj]);
+			  }
+		  }
+		  varMVX = ((double)(squaredSumX * 16) / (double)(halfH * halfW)) - (((double)(sumX * 16) / (double)(halfH * halfW)) * ((double)(sumX * 16) / (double)(halfH * halfW)));
+		  varMVY = ((double)(squaredSumY * 16) / (double)(halfH * halfW)) - (((double)(sumY * 16) / (double)(halfH * halfW)) * ((double)(sumY * 16) / (double)(halfH * halfW)));
+		  //double varMVTopL = varMVX + varMVY;
+
+		  double varSADTopL = ((double)(squaredSumSAD * 16) / (double)(halfH * halfW)) - (((double)(sumSAD * 16) / (double)(halfH * halfW)) * ((double)(sumSAD * 16) / (double)(halfH * halfW)));
+		  double aveSADTopL = (double)(sumSAD * 16) / (double)(halfH * halfW);
+
+		  varMVXScaled = varMVX / (widthFactor * widthFactor);
+		  varMVYScaled = varMVY / (heightFactor * heightFactor);
+		  double varMVTopLScaled = varMVXScaled + varMVYScaled;
+
+		  //double _squaredSumSADTopL = squaredSumSAD, _sumSADTopL = sumSAD;
+		  double _squaredSumXTopL = squaredSumX, _squaredSumYTopL = squaredSumY, _sumXTopL = sumX, _sumYTopL = sumY;
+
+
+		  aveX = 16 * sumX / (halfH * halfW);   aveY = 16 * sumY / (halfH * halfW);
+		  double aveMVTopL = abs(aveX) + abs(aveY);
+		  double aveMVTopLScaled = aveMVTopL / widthFactor;
+
+		  sumX = 0, squaredSumX = 0, sumY = 0, squaredSumY = 0;
+		  sumSAD = 0, squaredSumSAD = 0, squaredMul = 0;
+		  for (int ii = 0; ii < ((halfH / 4)); ii++)
+		  {
+			  for (int jj = (halfW / 4); jj < (wd / 4); jj++)
+			  {
+				  sumX += mvX[ii][jj]; sumY += mvY[ii][jj];
+				  squaredSumX += (mvX[ii][jj] * mvX[ii][jj]); squaredSumY += (mvY[ii][jj] * mvY[ii][jj]);
+				  sumSAD += sadError[ii][jj];
+				  squaredSumSAD += (sadError[ii][jj] * sadError[ii][jj]);
+				  squaredMul += (mvX[ii][jj] * mvY[ii][jj]) * (mvX[ii][jj] * mvY[ii][jj]);
+			  }
+		  }
+		  varMVX = ((double)(squaredSumX * 16) / (double)(halfH * halfW)) - (((double)(sumX * 16) / (double)(halfH * halfW)) * ((double)(sumX * 16) / (double)(halfH * halfW)));
+		  varMVY = ((double)(squaredSumY * 16) / (double)(halfH * halfW)) - (((double)(sumY * 16) / (double)(halfH * halfW)) * ((double)(sumY * 16) / (double)(halfH * halfW)));
+		  //double varMVTopR = varMVX + varMVY;
+
+		  double varSADTopR = ((double)(squaredSumSAD * 16) / (double)(halfH * halfW)) - (((double)(sumSAD * 16) / (double)(halfH * halfW)) * ((double)(sumSAD * 16) / (double)(halfH * halfW)));
+		  double aveSADTopR = (double)(sumSAD * 16) / (double)(halfH * halfW);
+
+		  varMVXScaled = varMVX / (widthFactor * widthFactor);
+		  varMVYScaled = varMVY / (heightFactor * heightFactor);
+		  double varMVTopRScaled = varMVXScaled + varMVYScaled;
+
+		  //double _squaredSumSADTopR = squaredSumSAD, _sumSADTopR = sumSAD;
+		  double _squaredSumXTopR = squaredSumX, _squaredSumYTopR = squaredSumY, _sumXTopR = sumX, _sumYTopR = sumY;
+
+		  aveX = 16 * sumX / (halfH * halfW);   aveY = 16 * sumY / (halfH * halfW);
+
+		  double aveMVTopR = abs(aveX) + abs(aveY);
+		  double aveMVTopRScaled = aveMVTopR / widthFactor;
+
+		  sumX = 0, squaredSumX = 0, sumY = 0, squaredSumY = 0;
+		  sumSAD = 0, squaredSumSAD = 0, squaredMul = 0;
+		  for (int ii = (halfH / 4); ii < (ht / 4); ii++)
+		  {
+			  for (int jj = 0; jj < ((halfW / 4)); jj++)
+			  {
+				  sumX += mvX[ii][jj]; sumY += mvY[ii][jj];
+				  squaredSumX += (mvX[ii][jj] * mvX[ii][jj]); squaredSumY += (mvY[ii][jj] * mvY[ii][jj]);
+				  sumSAD += sadError[ii][jj];
+				  squaredSumSAD += (sadError[ii][jj] * sadError[ii][jj]);
+				  squaredMul += (mvX[ii][jj] * mvY[ii][jj]) * (mvX[ii][jj] * mvY[ii][jj]);
+			  }
+		  }
+		  varMVX = ((double)(squaredSumX * 16) / (double)(halfH * halfW)) - (((double)(sumX * 16) / (double)(halfH * halfW)) * ((double)(sumX * 16) / (double)(halfH * halfW)));
+		  varMVY = ((double)(squaredSumY * 16) / (double)(halfH * halfW)) - (((double)(sumY * 16) / (double)(halfH * halfW)) * ((double)(sumY * 16) / (double)(halfH * halfW)));
+		  //double varMVBotL = varMVX + varMVY;
+
+		  double varSADBotL = ((double)(squaredSumSAD * 16) / (double)(halfH * halfW)) - (((double)(sumSAD * 16) / (double)(halfH * halfW)) * ((double)(sumSAD * 16) / (double)(halfH * halfW)));
+		  double aveSADBotL = (double)(sumSAD * 16) / (double)(halfH * halfW);
+
+		  varMVXScaled = varMVX / (widthFactor * widthFactor);
+		  varMVYScaled = varMVY / (heightFactor * heightFactor);
+		  double varMVBotLScaled = varMVXScaled + varMVYScaled;
+
+		  //double _squaredSumSADBotL = squaredSumSAD, _sumSADBotL = sumSAD;
+		  double _squaredSumXBotL = squaredSumX, _squaredSumYBotL = squaredSumY, _sumXBotL = sumX, _sumYBotL = sumY;
+
+		  aveX = 16 * sumX / (halfH * halfW);   aveY = 16 * sumY / (halfH * halfW);
+		  double aveMVBotL = abs(aveX) + abs(aveY);
+		  double aveMVBotLScaled = aveMVBotL / widthFactor;
+		  sumX = 0, squaredSumX = 0, sumY = 0, squaredSumY = 0;
+		  sumSAD = 0, squaredSumSAD = 0, squaredMul = 0;
+		  for (int ii = (halfH / 4); ii < (ht / 4); ii++)
+		  {
+			  for (int jj = (halfW / 4); jj < (wd / 4); jj++)
+			  {
+				  sumX += mvX[ii][jj]; sumY += mvY[ii][jj];
+				  squaredSumX += (mvX[ii][jj] * mvX[ii][jj]); squaredSumY += (mvY[ii][jj] * mvY[ii][jj]);
+				  sumSAD += sadError[ii][jj];
+				  squaredSumSAD += (sadError[ii][jj] * sadError[ii][jj]);
+				  squaredMul += (mvX[ii][jj] * mvY[ii][jj]) * (mvX[ii][jj] * mvY[ii][jj]);
+			  }
+		  }
+		  varMVX = ((double)(squaredSumX * 16) / (double)(halfH * halfW)) - (((double)(sumX * 16) / (double)(halfH * halfW)) * ((double)(sumX * 16) / (double)(halfH * halfW)));
+		  varMVY = ((double)(squaredSumY * 16) / (double)(halfH * halfW)) - (((double)(sumY * 16) / (double)(halfH * halfW)) * ((double)(sumY * 16) / (double)(halfH * halfW)));
+		  //double varMVBotR = varMVX + varMVY;
+
+		  double varSADBotR = ((double)(squaredSumSAD * 16) / (double)(halfH * halfW)) - (((double)(sumSAD * 16) / (double)(halfH * halfW)) * ((double)(sumSAD * 16) / (double)(halfH * halfW)));
+		  double aveSADBotR = (double)(sumSAD * 16) / (double)(halfH * halfW);
+
+		  varMVXScaled = varMVX / (widthFactor * widthFactor);
+		  varMVYScaled = varMVY / (heightFactor * heightFactor);
+		  double varMVBotRScaled = varMVXScaled + varMVYScaled;
+
+		  //double _squaredSumSADBotR = squaredSumSAD, _sumSADBotR = sumSAD;
+		  double _squaredSumXBotR = squaredSumX, _squaredSumYBotR = squaredSumY, _sumXBotR = sumX, _sumYBotR = sumY;
+
+		  aveX = 16 * sumX / (halfH * halfW);   aveY = 16 * sumY / (halfH * halfW);
+		  double aveMVBotR = abs(aveX) + abs(aveY);
+		  double aveMVBotRScaled = aveMVBotR / widthFactor;
+		  double aveMVScaled = (aveMVTopRScaled + aveMVTopLScaled + aveMVBotLScaled + aveMVBotRScaled) / 4;
+
+		  double ratio2HvarPix1 = (double)8 * (_squaredSumPixTopL + _squaredSumPixBotL) / (double)(halfH * halfW) - (double)(8 * (_sumPixTopL + _sumPixBotL) / (double)(halfH * halfW)) * (8 * (_sumPixTopL + _sumPixBotL) / (double)(halfH * halfW));
+		  double ratio2HvarPix2 = (double)8 * (_squaredSumPixTopR + _squaredSumPixBotR) / (double)(halfH * halfW) - (double)(8 * (_sumPixTopR + _sumPixBotR) / (double)(halfH * halfW)) * (8 * (_sumPixTopR + _sumPixBotR) / (double)(halfH * halfW));
+		  double ratio2HVarPix = abs(ratio2HvarPix1 / ratio2HvarPix2);
+
+		  ratio2HvarPix1 = (double)8 * (_squaredSumPixTopL + _squaredSumPixTopR) / (double)(halfH * halfW) - (double)(8 * (_sumPixTopL + _sumPixTopR) / (double)(halfH * halfW)) * (8 * (_sumPixTopL + _sumPixTopR) / (double)(halfH * halfW));
+		  ratio2HvarPix2 = (double)8 * (_squaredSumPixBotL + _squaredSumPixBotR) / (double)(halfH * halfW) - (double)(8 * (_sumPixBotL + _sumPixBotR) / (double)(halfH * halfW)) * (8 * (_sumPixBotL + _sumPixBotR) / (double)(halfH * halfW));
+		  double ratio2VVarPix = abs(ratio2HvarPix1 / ratio2HvarPix2);
+
+		  double ratio2HGrad = abs((gradHorTopL / gradVerTopL) + (gradHorBotL / gradVerBotL)) / abs((gradHorTopR / gradVerTopR) + (gradHorBotR / gradVerBotR));
+		  double ratio2VGrad = abs((gradHorTopL / gradVerTopL) + (gradHorTopR / gradVerTopR)) / abs((gradHorBotL / gradVerBotL) + (gradHorBotR / gradVerBotR));
+
+		  double ratio2HVarMVScaledX1 = (double)8 * (_squaredSumXTopL + _squaredSumXBotL) / (double)(halfH * halfW) - (double)(8 * (_sumXTopL + _sumXBotL) / (double)(halfH * halfW)) * (8 * (_sumXTopL + _sumXBotL) / (double)(halfH * halfW));
+		  double ratio2HVarMVScaledY1 = (double)8 * (_squaredSumYTopL + _squaredSumYBotL) / (double)(halfH * halfW) - (double)(8 * (_sumYTopL + _sumYBotL) / (double)(halfH * halfW)) * (8 * (_sumYTopL + _sumYBotL) / (double)(halfH * halfW));
+		  double ratio2HVarMVScaledX2 = (double)8 * (_squaredSumXTopR + _squaredSumXBotR) / (double)(halfH * halfW) - (double)(8 * (_sumXTopR + _sumXBotR) / (double)(halfH * halfW)) * (8 * (_sumXTopR + _sumXBotR) / (double)(halfH * halfW));
+		  double ratio2HVarMVScaledY2 = (double)8 * (_squaredSumYTopR + _squaredSumYBotR) / (double)(halfH * halfW) - (double)(8 * (_sumYTopR + _sumYBotR) / (double)(halfH * halfW)) * (8 * (_sumYTopR + _sumYBotR) / (double)(halfH * halfW));		  
+		  double ratio2HVarMVScaled = abs(ratio2HVarMVScaledX1 / ratio2HVarMVScaledX2) + abs(ratio2HVarMVScaledY1 / ratio2HVarMVScaledY2);
+
+		  ratio2HVarMVScaledX1 = (double)8 * (_squaredSumXTopL + _squaredSumXTopR) / (double)(halfH * halfW) - (double)(8 * (_sumXTopL + _sumXTopR) / (double)(halfH * halfW)) * (8 * (_sumXTopL + _sumXTopR) / (double)(halfH * halfW));
+		  ratio2HVarMVScaledY1 = (double)8 * (_squaredSumYTopL + _squaredSumYTopR) / (double)(halfH * halfW) - (double)(8 * (_sumYTopL + _sumYTopR) / (double)(halfH * halfW)) * (8 * (_sumYTopL + _sumYTopR) / (double)(halfH * halfW));
+		  ratio2HVarMVScaledX2 = (double)8 * (_squaredSumXBotL + _squaredSumXBotR) / (double)(halfH * halfW) - (double)(8 * (_sumXBotL + _sumXBotR) / (double)(halfH * halfW)) * (8 * (_sumXBotL + _sumXBotR) / (double)(halfH * halfW));
+		  ratio2HVarMVScaledY2 = (double)8 * (_squaredSumYBotL + _squaredSumYBotR) / (double)(halfH * halfW) - (double)(8 * (_sumYBotL + _sumYBotR) / (double)(halfH * halfW)) * (8 * (_sumYBotL + _sumYBotR) / (double)(halfH * halfW));
+		  double ratio2VVarMVScaled = abs(ratio2HVarMVScaledX1 / ratio2HVarMVScaledX2) + abs(ratio2HVarMVScaledY1 / ratio2HVarMVScaledY2);
+		  //double ratio2HAveMVScaled = abs((aveMVTopLScaled + aveMVBotLScaled) / (aveMVTopRScaled + aveMVBotRScaled));
+		  //double ratio2VAveMVScaled = abs((aveMVTopLScaled + aveMVTopRScaled) / (aveMVBotLScaled + aveMVBotRScaled));
+
+
+
+		  double ratio2HaveSAD = abs((aveSADTopL + aveSADBotL) / (aveSADTopR + aveSADBotR));
+		  double ratio2VaveSAD = abs((aveSADTopL + aveSADTopR) / (aveSADBotL + aveSADBotR));
+
+
+		  double ratio2HSobel = abs((sobelTopL + sobelTopR) / (sobelBotL + sobelBotR));
+		  double ratio2VSobel = abs((sobelTopL + sobelBotL) / (sobelTopR + sobelBotR));
+
+		  double ratio2HVVarMVScaled = ratio2HVarMVScaled / ratio2VVarMVScaled;
+		  //double ratio2HVAveMVScaled = ratio2HAveMVScaled / ratio2VAveMVScaled;
+
+		  double ratio2HVSobel = ratio2HSobel / ratio2VSobel;
+
+			const CodingStructure* bestCS = cuECtx.bestCS;
+			bool isInter = false, isMerge = false, isGeo = false, isIntra = false;
+			if (bestCS != NULL && !bestCS->cus.empty())
+			{
+				CodingUnit* bestnonSplitcu = bestCS->cus[0];
+				bool isIntra = CU::isIntra(*bestnonSplitcu);
+				cuECtx.set(IS_NON_SPLIT_INTRA, isIntra);
+				if (!isIntra)
+				{
+					isInter = CU::isInter(*bestnonSplitcu) && !bestnonSplitcu->firstPU->mergeFlag;
+					isMerge = CU::isInter(*bestnonSplitcu) && bestnonSplitcu->firstPU->mergeFlag && !bestnonSplitcu->geoFlag;
+					isGeo = CU::isInter(*bestnonSplitcu) && bestnonSplitcu->geoFlag;
+				}
+				else
+				{
+					isInter = false;
+					isMerge = false;
+					isGeo = false;
+				}
+			}
+
+
+			int tLayer = cs.slice->getPic()->temporalId;
+			float qTMTTFeatures[34] = { (float)tLayer, (float)qp, (float)var, (float)gradHor, (float)gradVer, (float)gradRatio, (float)varTopL, (float)varTopR, (float)varBotL, (float)varBotR,
+											(float)VarMvScaled, (float)varMVTopLScaled, (float)varMVTopRScaled, (float)varMVBotLScaled, (float)varMVBotRScaled, (float)eigenDifference, (float)aveSAD, (float)varSAD, (float)varSADTopL, (float)varSADTopR, (float)varSADBotL, (float)varSADBotR, (float)sobelTopL, (float)sobelTopR, (float)sobelBotL, (float)sobelBotR, (float)ratio2HGrad, (float)ratio2VGrad, (float)ratio2HVarMVScaled, (float)ratio2VVarMVScaled, (float)ratio2HVVarMVScaled, (float)isIntra, (float)isInter, (float)isMerge };
+		
+			float horVerFeatures[45] = { (float)tLayer, (float)qp, (float)var, (float)gradHor, (float)gradVer, (float)gradRatio, (float)varTopL, (float)varTopR, (float)varBotL, (float)varBotR,
+											(float)VarMvScaled, (float)varMVTopLScaled, (float)varMVTopRScaled, (float)varMVBotLScaled, (float)varMVBotRScaled, (float)aveMVScaled, (float)aveMVTopLScaled, (float)aveMVTopRScaled, (float)aveMVBotLScaled, (float)aveMVBotRScaled, (float)aveSAD, (float)varSAD, (float)varSADTopL, (float)varSADTopR, (float)varSADBotL, (float)varSADBotR, (float)sobelTopL, (float)sobelTopR, (float)sobelBotL, (float)sobelBotR, (float)ratio2HVarPix, (float)ratio2VVarPix, (float)ratio2HGrad, (float)ratio2VGrad, (float)ratio2HVarMVScaled, (float)ratio2VVarMVScaled, (float)ratio2HaveSAD, (float)ratio2VaveSAD, (float)ratio2HSobel, (float)ratio2VSobel, (float)ratio2HVSobel, (float)isIntra, (float)isInter, (float)isMerge, (float)isGeo };
+
+
+
+		bool noZeroDenom =  gradVerBotR != 0.0 && gradVerBotL != 0.0 && gradVerTopR != 0.0 && gradVerTopL != 0.0 && gradVer != 0.0;
+		if (!noZeroDenom)
+		{
+			cuECtx.set(NO_SPLIT_FLAG, 2);
+			cuECtx.set(QT_FLAG, 2);
+			cuECtx.set(HOR_FLAG, 2);
+		}
+		else
+		{
+#if COLLECT_DATASET
+      std::string nameFile = filename_arg.substr(filename_arg.find_last_of("/\\") + 1);
+      std::string sTracingFile_feature = "split_features_" + nameFile.substr(0, nameFile.find_last_of(".")) + "_QP_" + to_string(qp_arg) + ".csv";
+
+      std::string format_head = "%d;%d;%d;%d;%d;%ld;%d;";
+#else
+			RandomForestClassfier rf;
+#endif
+			double noSplitFrac = 0.5;
+
+
+#if !RF_TH_CMD
+#if INTIALIZE_TO_0_5
+			int noSplitFlag = noSplitFrac > 0.50 ? 1 : (noSplitFrac < 0.50 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_75
+			int noSplitFlag = noSplitFrac > 0.75 ? 1 : (noSplitFrac < 0.25 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_85
+			int noSplitFlag = noSplitFrac > 0.85 ? 1 : (noSplitFrac < 0.15 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_1_00
+			int noSplitFlag = noSplitFrac > 0.975 ? 1 : (noSplitFrac < 0.025 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_90
+			int noSplitFlag = noSplitFrac > 0.90 ? 1 : (noSplitFrac < 0.10 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_95
+			int noSplitFlag = noSplitFrac > 0.95 ? 1 : (noSplitFrac < 0.05 ? 0 : 2);
+#endif
+#else
+
+        float thdt = m_pcEncCfg->getThresholdDT();
+        int noSplitFlag;
+        if (thdt == 1.0f)
+			    noSplitFlag = noSplitFrac > 0.975 ? 1 : (noSplitFrac < 0.025 ? 0 : 2);
+        else
+          noSplitFlag = noSplitFrac > thdt ? 1 : (noSplitFrac < (1-thdt) ? 0 : 2);
+
+#endif
+
+
+
+
+			//int qTFlag = 2, horFlag = 2, btFlag = 2;
+			int qTFlag = 2, horFlag = 2;
+			cuECtx.set(NO_SPLIT_FLAG, noSplitFlag);
+			if (noSplitFlag != 1)
+			{
+#if COLLECT_DATASET
+        double qTFrac = 0.5;
+        if (wd == ht && wd != 8){
+          FILE* m_trace_file_f = fopen( sTracingFile_feature.c_str(), "a+" );
+          WriteFormatted_features(m_trace_file_f, format_head.c_str(), cs.slice->getPOC(), ht, wd, partitioner.currArea().lx(), partitioner.currArea().ly(), partitioner.getSplitSeries(), 0);  
+          for(int i = 0; i < 34; i++){
+           WriteFormatted_features(m_trace_file_f, "%f;", qTMTTFeatures[i]);
+          }
+          WriteFormatted_features(m_trace_file_f, "\n");
+          fclose(m_trace_file_f);
+        }
+#else
+				double qTFrac = (wd == ht) ? (1 - rf.predictQTMTT(qTMTTFeatures, wd, ht)) : 0.5;
+#endif
+
+
+#if !RF_TH_CMD
+
+#if PCA_BASED_THRESHOLDS
+				qTFlag = qTFrac > pcaThresholdQT ? 1 : (qTFrac < (1 - pcaThresholdQT) ? 0 : 2);
+#else
+#if INTIALIZE_TO_0_5
+				qTFlag = qTFrac > 0.50 ? 1 : (qTFrac < 0.50 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_75
+				qTFlag = qTFrac > 0.75 ? 1 : (qTFrac < 0.25 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_85
+				qTFlag = qTFrac > 0.85 ? 1 : (qTFrac < 0.15 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_1_00
+				qTFlag = qTFrac > 0.975 ? 1 : (qTFrac < 0.025 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_90
+				qTFlag = qTFrac > 0.90 ? 1 : (qTFrac < 0.10 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_95
+				qTFlag = qTFrac > 0.95 ? 1 : (qTFrac < 0.05 ? 0 : 2);
+#endif
+#endif
+
+#else
+
+        float thdt = m_pcEncCfg->getThresholdDT();
+        if (thdt == 1.0f)
+			    qTFlag = qTFrac > 0.975 ? 1 : (qTFrac < 0.025 ? 0 : 2);
+        else
+          qTFlag = qTFrac > thdt ? 1 : (qTFrac < (1-thdt) ? 0 : 2);
+
+#endif
+
+
+
+
+				cuECtx.set(QT_FLAG, qTFlag);
+				bool zeroDenom2 = (aveMVTopRScaled + aveMVBotRScaled) == 0.0 || (aveMVBotLScaled + aveMVBotRScaled) == 0.0 || (aveSADTopR + aveSADBotR) == 0.0 || (aveSADBotL + aveSADBotR) == 0.0 || (sobelBotL + sobelBotR) == 0.0 || (sobelTopR + sobelBotR) == 0.0 || ratio2VSobel == 0.0;
+				if (qTFlag != 1 && !zeroDenom2)
+				{
+
+#if COLLECT_DATASET
+          FILE* m_trace_file_f = fopen( sTracingFile_feature.c_str(), "a+" );
+          double horFrac = 0.5;
+          WriteFormatted_features(m_trace_file_f, format_head.c_str(), cs.slice->getPOC(), ht, wd, partitioner.currArea().lx(), partitioner.currArea().ly(), partitioner.getSplitSeries(), 1);  
+          for(int i = 0; i < 45; i++){
+           WriteFormatted_features(m_trace_file_f, "%f;", horVerFeatures[i]);
+          }
+          WriteFormatted_features(m_trace_file_f, "\n");
+          fclose(m_trace_file_f);
+#else
+					double horFrac = 1 - rf.predictHorVer(horVerFeatures, wd, ht);
+#endif
+
+
+#if !RF_TH_CMD
+
+#if PCA_BASED_THRESHOLDS
+					horFlag = horFrac > pcaThresholdHor ? 1 : (horFrac < (1 - pcaThresholdHor) ? 0 : 2);;
+#else
+#if INTIALIZE_TO_0_5
+					horFlag = horFrac > 0.50 ? 1 : (horFrac < 0.50 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_75
+					horFlag = horFrac > 0.75 ? 1 : (horFrac < 0.25 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_85
+					horFlag = horFrac > 0.85 ? 1 : (horFrac < 0.15 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_1_00
+					horFlag = horFrac > 0.975 ? 1 : (horFrac < 0.025 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_90
+					horFlag = horFrac > 0.90 ? 1 : (horFrac < 0.10 ? 0 : 2);
+#endif
+#if INTIALIZE_TO_0_95
+					horFlag = horFrac > 0.95 ? 1 : (horFrac < 0.05 ? 0 : 2);
+#endif
+#endif
+
+#else
+
+        float thdt = m_pcEncCfg->getThresholdDT();
+        if (thdt == 1.0f)
+			    horFlag = horFrac > 0.975 ? 1 : (horFrac < 0.025 ? 0 : 2);
+        else
+          horFlag = horFrac > thdt ? 1 : (horFrac < (1-thdt) ? 0 : 2);
+
+#endif
+
+
+					cuECtx.set(HOR_FLAG, horFlag);
+				}
+			}
+		}
+  }
+
+	  if (encTestmode.type != ETM_POST_DONT_SPLIT)
+	  return false;
+  }
+  else if (encTestmode.type == IS_FIRST_MODE)
+  {
+	return false;
+  }
+#endif
+
+
   // Fast checks, partitioning depended
   if (cuECtx.isHashPerfectMatch && encTestmode.type != ETM_MERGE_SKIP && encTestmode.type != ETM_INTER_ME && encTestmode.type != ETM_AFFINE && encTestmode.type != ETM_MERGE_GEO)
   {
@@ -1432,6 +2208,87 @@ bool EncModeCtrlMTnoRQT::tryMode( const EncTestMode& encTestmode, const CodingSt
 
   const PartSplit implicitSplit = partitioner.getImplicitSplit( cs );
   const bool isBoundary         = implicitSplit != CU_DONT_SPLIT;
+
+#if DISABLE_RF_IF_EMPTY_CU_WHEN_FULL
+  if (encTestmode.type == ETM_POST_DONT_SPLIT)
+  {
+	  const CodingStructure* bestCS = cuECtx.bestCS;
+	  cuECtx.set(EMPTY_CU_WHEN_FULL, (bestCS == NULL || (bestCS != NULL && bestCS->cus.empty())) ? true : false);
+  }
+#endif
+
+
+#if FEATURE_TEST 
+
+#if DISABLE_RF_IF_EMPTY_CU_WHEN_FULL
+	  if(!cuECtx.get<bool>(EMPTY_CU_WHEN_FULL))
+	  {
+#endif
+		  if (cs.slice->getSliceType() != I_SLICE && sizeIndex != 28)
+		  {
+			  //int noSplitFlag = cuECtx.get<int>(NO_SPLIT_FLAG);
+			  int qTFlag = cuECtx.get<int>(QT_FLAG);
+			  int horFlag = cuECtx.get<int>(HOR_FLAG);
+			  //noSplitFlag = 2;
+
+#if MORE_RESTRICTIVE_SKIP
+			  if (qTFlag == 1 && encTestmode.type != ETM_SPLIT_QT && isModeSplit(encTestmode) && cuECtx.get<bool>(DID_QUAD_SPLIT))
+#else
+			  if (qTFlag == 1 && encTestmode.type != ETM_SPLIT_QT && isModeSplit(encTestmode))
+#endif
+			  {
+				  {
+					  cuECtx.set(DID_HORZ_SPLIT, false);
+					  cuECtx.set(DID_VERT_SPLIT, false);
+					  cuECtx.set(DO_TRIH_SPLIT, false);
+					  cuECtx.set(DO_TRIV_SPLIT, false);
+					  return false;
+				  }
+			  }
+#if MORE_RESTRICTIVE_SKIP
+			  if (qTFlag == 0 && isModeSplit(encTestmode) && (cuECtx.get<bool>(DID_HORZ_SPLIT) || cuECtx.get<bool>(DID_VERT_SPLIT) || cuECtx.get<bool>(DO_TRIH_SPLIT) || cuECtx.get<bool>(DO_TRIV_SPLIT)))
+#else
+			  if (!qTFlag && isModeSplit(encTestmode))
+#endif
+			  {
+				  if (encTestmode.type == ETM_SPLIT_QT)
+				  {
+					  cuECtx.set(DID_QUAD_SPLIT, false);
+					  return false;
+				  }
+			  }
+#if MORE_RESTRICTIVE_SKIP
+			  if (horFlag == 1 && (encTestmode.type == ETM_SPLIT_BT_V || encTestmode.type == ETM_SPLIT_TT_V) && (cuECtx.get<bool>(DID_HORZ_SPLIT) || cuECtx.get<bool>(DO_TRIH_SPLIT)))
+#else
+			  if (horFlag == 1 && (encTestmode.type == ETM_SPLIT_BT_V || encTestmode.type == ETM_SPLIT_TT_V))
+#endif
+			  {
+				  {
+					  cuECtx.set(DID_VERT_SPLIT, false);
+					  cuECtx.set(DO_TRIV_SPLIT, false);
+					  return false;
+				  }
+			  }
+#if MORE_RESTRICTIVE_SKIP
+			  if (horFlag == 0 && (encTestmode.type == ETM_SPLIT_BT_H || encTestmode.type == ETM_SPLIT_TT_H) && (cuECtx.get<bool>(DID_VERT_SPLIT) || cuECtx.get<bool>(DO_TRIV_SPLIT)))
+#else
+			  if (!horFlag && (encTestmode.type == ETM_SPLIT_BT_H || encTestmode.type == ETM_SPLIT_TT_H))
+#endif
+			  {
+				  //if (!(isBoundary && getPartSplit(encTestmode) == implicitSplit))
+				  {
+					  cuECtx.set(DID_HORZ_SPLIT, false);
+					  cuECtx.set(DO_TRIH_SPLIT, false);
+					  return false;
+				  }
+			  }
+		  }
+#if DISABLE_RF_IF_EMPTY_CU_WHEN_FULL
+	  }
+#endif
+#endif
+
+
 
   if( isBoundary && encTestmode.type != ETM_SPLIT_QT )
   {
@@ -1676,6 +2533,32 @@ bool EncModeCtrlMTnoRQT::tryMode( const EncTestMode& encTestmode, const CodingSt
     }
 
     const PartSplit split = getPartSplit( encTestmode );
+const CompArea& currArea = partitioner.currArea().Y();
+	int cuHeight = currArea.height;
+	int cuWidth = currArea.width;
+
+#if TT_SPEEDUPS 
+	if (bestCS && bestCS->cus.size() == 1)
+	{
+		CodingUnit *bestnonSplitcu = bestCS->cus[0];
+		bool mode = CU::isInter(*bestnonSplitcu) && (!bestnonSplitcu->firstPU->mergeFlag || bestnonSplitcu->geoFlag);
+		if (split == CU_TRIH_SPLIT)
+		{
+			bool size = (cuWidth == 8 && cuHeight == 64) || (cuWidth == 4 && cuHeight == 64) || (cuWidth == 16 && cuHeight == 64);
+			if (!(mode && size))
+				return false;
+		}
+		else if (split == CU_TRIV_SPLIT)
+		{
+			bool size = (cuWidth == 64 && cuHeight == 8) || (cuWidth == 64 && cuHeight == 4)  || (cuWidth == 64 && cuHeight == 16);
+			if (!(mode && size))
+				return false;
+		}
+	}
+#endif
+
+
+
     if( !partitioner.canSplit( split, cs ) || skipScore >= 2 )
     {
       if( split == CU_HORZ_SPLIT ) cuECtx.set( DID_HORZ_SPLIT, false );
@@ -2009,22 +2892,81 @@ bool EncModeCtrlMTnoRQT::useModeResult( const EncTestMode& encTestmode, CodingSt
   xExtractFeatures( encTestmode, *tempCS );
 
   ComprCUCtx& cuECtx = m_ComprCUCtxList.back();
+  //int poc = tempCS->slice->getPOC(), height = partitioner.currArea().lheight(), width = partitioner.currArea().lwidth(), pos_x = partitioner.currArea().lx(), pos_y = partitioner.currArea().ly(), split_s = (int) partitioner.getSplitSeries();
+
+  //if ((poc == 12) && (height = 16) && (width == 8) && (pos_x == 244) && (pos_y == 16) && (split_s ==164897))
+  //  int d = 2;
+#if COLLECT_DATASET
+      std::string nameFile = filename_arg.substr(filename_arg.find_last_of("/\\") + 1);
+      std::string sTracingFile_cost = "split_cost_" + nameFile.substr(0, nameFile.find_last_of(".")) + "_QP_" + to_string(qp_arg) + ".csv";
+
+      std::string format_head = "%d;%d;%d;%d;%d;%ld;%d;%.1f;";
+
+      bool frame_collect =  ((tempCS->slice->getPOC() % 3 == 0) && (tempCS->slice->getPic()->lheight() == 544 || tempCS->slice->getPic()->lheight() == 272)) || ((tempCS->slice->getPic()->lheight() == 1088 || tempCS->slice->getPic()->lheight() == 2176 || tempCS->slice->getPic()->lheight() == 720) && (tempCS->slice->getPOC() == 8 || tempCS->slice->getPOC() == 16 || tempCS->slice->getPOC() == 28 || tempCS->slice->getPOC() == 42 || tempCS->slice->getPOC() == 49 || tempCS->slice->getPOC() == 57));
+
+#endif
 
 
   if(      encTestmode.type == ETM_SPLIT_BT_H )
   {
-    cuECtx.set( BEST_HORZ_SPLIT_COST, tempCS->cost );
+#if COLLECT_DATASET
+    if (tempCS->slice->getSliceType() != I_SLICE && frame_collect && tempCS->treeType != TREE_C){
+    FILE* m_trace_file_c = fopen( sTracingFile_cost.c_str(), "a+" );
+    WriteFormatted_features(m_trace_file_c, format_head.c_str(), tempCS->slice->getPOC(), partitioner.currArea().lheight(), partitioner.currArea().lwidth(), partitioner.currArea().lx(), partitioner.currArea().ly(), partitioner.getSplitSeries(), encTestmode.type, tempCS->cost);  
+    WriteFormatted_features(m_trace_file_c, "\n"); 
+    fclose(m_trace_file_c);
+    }
+#endif   
+     cuECtx.set( BEST_HORZ_SPLIT_COST, tempCS->cost );
   }
   else if( encTestmode.type == ETM_SPLIT_BT_V )
   {
+#if COLLECT_DATASET
+    if (tempCS->slice->getSliceType() != I_SLICE && frame_collect && tempCS->treeType != TREE_C){
+    FILE* m_trace_file_c = fopen( sTracingFile_cost.c_str(), "a+" );
+    WriteFormatted_features(m_trace_file_c, format_head.c_str(), tempCS->slice->getPOC(), partitioner.currArea().lheight(), partitioner.currArea().lwidth(), partitioner.currArea().lx(), partitioner.currArea().ly(), partitioner.getSplitSeries(), encTestmode.type, tempCS->cost);  
+    WriteFormatted_features(m_trace_file_c, "\n");
+    fclose(m_trace_file_c);
+    }
+#endif 
     cuECtx.set( BEST_VERT_SPLIT_COST, tempCS->cost );
   }
+#if  FEATURE_TEST
+  else if (encTestmode.type == ETM_SPLIT_QT)
+  {
+#if COLLECT_DATASET
+    if (tempCS->slice->getSliceType() != I_SLICE && frame_collect && tempCS->treeType != TREE_C){
+    FILE* m_trace_file_c = fopen( sTracingFile_cost.c_str(), "a+" );
+    WriteFormatted_features(m_trace_file_c, format_head.c_str(), tempCS->slice->getPOC(), partitioner.currArea().lheight(), partitioner.currArea().lwidth(), partitioner.currArea().lx(), partitioner.currArea().ly(), partitioner.getSplitSeries(), encTestmode.type, tempCS->cost);  
+    WriteFormatted_features(m_trace_file_c, "\n");
+    fclose(m_trace_file_c);
+    }
+#endif 
+	  cuECtx.set(BEST_QT_COST, tempCS->cost);
+  }
+#endif
   else if( encTestmode.type == ETM_SPLIT_TT_H )
   {
+#if COLLECT_DATASET
+    if (tempCS->slice->getSliceType() != I_SLICE && frame_collect && tempCS->treeType != TREE_C){
+    FILE* m_trace_file_c = fopen( sTracingFile_cost.c_str(), "a+" );
+    WriteFormatted_features(m_trace_file_c, format_head.c_str(), tempCS->slice->getPOC(), partitioner.currArea().lheight(), partitioner.currArea().lwidth(), partitioner.currArea().lx(), partitioner.currArea().ly(), partitioner.getSplitSeries(), encTestmode.type, tempCS->cost);  
+    WriteFormatted_features(m_trace_file_c, "\n");
+    fclose(m_trace_file_c);
+    }
+#endif 
     cuECtx.set( BEST_TRIH_SPLIT_COST, tempCS->cost );
   }
   else if( encTestmode.type == ETM_SPLIT_TT_V )
   {
+#if COLLECT_DATASET
+    if (tempCS->slice->getSliceType() != I_SLICE && frame_collect && tempCS->treeType != TREE_C){
+    FILE* m_trace_file_c = fopen( sTracingFile_cost.c_str(), "a+" );
+    WriteFormatted_features(m_trace_file_c, format_head.c_str(), tempCS->slice->getPOC(), partitioner.currArea().lheight(), partitioner.currArea().lwidth(), partitioner.currArea().lx(), partitioner.currArea().ly(), partitioner.getSplitSeries(), encTestmode.type, tempCS->cost);  
+    WriteFormatted_features(m_trace_file_c, "\n");
+    fclose(m_trace_file_c);
+    }
+#endif 
     cuECtx.set( BEST_TRIV_SPLIT_COST, tempCS->cost );
   }
   else if( encTestmode.type == ETM_INTRA )

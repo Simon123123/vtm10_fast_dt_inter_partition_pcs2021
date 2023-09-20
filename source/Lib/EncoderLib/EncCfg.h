@@ -297,6 +297,11 @@ protected:
   int       m_numReorderPics[MAX_TLAYER];
   int       m_drapPeriod;
 
+#if RF_TH_CMD
+  float m_threshold_dt;
+#endif
+
+
   int       m_iQP;                              //  if (AdaptiveQP == OFF)
   ChromaQpMappingTableParams m_chromaQpMappingTableParams;
 #if X0038_LAMBDA_FROM_QP_CAPABILITY
@@ -1488,6 +1493,12 @@ public:
   bool      getMixedLossyLossless()       { return m_mixedLossyLossless; }
   void      setSliceLosslessArray(std::vector<uint16_t> sliceLosslessArray) { m_sliceLosslessArray = sliceLosslessArray; }
   const     std::vector<uint16_t>*   getSliceLosslessArray() const { return &m_sliceLosslessArray; }
+
+#if RF_TH_CMD
+  float     getThresholdDT()const                                            { return m_threshold_dt;                    }
+  void      setThresholdDT( float t )                                        { m_threshold_dt = t;                       }
+#endif
+
   //====== Tiles and Slices ========
   void      setNoPicPartitionFlag( bool b )                                { m_noPicPartitionFlag = b;              }
   bool      getNoPicPartitionFlag()                                        { return m_noPicPartitionFlag;           }

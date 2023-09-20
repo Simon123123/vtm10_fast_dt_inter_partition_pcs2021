@@ -52,6 +52,41 @@
 
 // clang-format off
 //########### place macros to be removed in next cycle below this line ###############
+
+
+#define DISABLE_CU_CACHING								  0
+#define ESD_ADJUST										  0
+
+
+#define TT_SPEEDUPS										  1
+
+
+#define FEATURE_TEST									  1
+#define FEATURE_EXTRACTION_DIAMOND						  1
+
+#define COLLECT_DATASET                 0
+
+#if COLLECT_DATASET
+  extern std::string filename_arg;
+  extern int qp_arg;
+#endif
+
+#define MORE_RESTRICTIVE_SKIP							  0
+#define DISABLE_QT_NULL_CU_CHECK						  1
+#define DISABLE_RF_IF_EMPTY_CU_WHEN_FULL				  1
+
+#define RF_TH_CMD                                 1
+
+#if !RF_TH_CMD
+#define INTIALIZE_TO_0_5								  0
+#define INTIALIZE_TO_0_75								  0
+#define INTIALIZE_TO_0_85								  0
+#define INTIALIZE_TO_1_00								  0
+#define INTIALIZE_TO_0_90								  0
+#define INTIALIZE_TO_0_95								  1
+#endif
+
+
 #define JVET_S0058_GCI                                    1 // no_mtt_constraint_flag and no_weightedpred_constraint_flag
 
 #define JVET_R0341_GCI                                    1 // JVET-R0341: on constraint flag for local chroma QP control
@@ -192,10 +227,15 @@
 typedef std::pair<int, bool> TrMode;
 typedef std::pair<int, int>  TrCost;
 
+#if DISABLE_CU_CACHING
+#define REUSE_CU_RESULTS                                  0 
+#else
 #define REUSE_CU_RESULTS                                  1
 #if REUSE_CU_RESULTS
 #define REUSE_CU_RESULTS_WITH_MULTIPLE_TUS                1
 #endif
+#endif
+
 
 #ifndef JVET_J0090_MEMORY_BANDWITH_MEASURE
 #define JVET_J0090_MEMORY_BANDWITH_MEASURE                0

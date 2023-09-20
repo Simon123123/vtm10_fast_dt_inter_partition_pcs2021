@@ -199,6 +199,9 @@ void  EncGOP::destroy()
   if (m_picOrig)
   {
     m_picOrig->destroy();
+#if FEATURE_TEST
+	m_picOrig->destroyMv();
+#endif
     delete m_picOrig;
     m_picOrig = NULL;
   }
@@ -2690,6 +2693,194 @@ void EncGOP::compressGOP( int iPOCLast, int iNumPicRcvd, PicList& rcListPic,
     {
       pcSlice->setBiDirPred( false, -1, -1 );
     }
+
+
+#if FEATURE_TEST
+#if FEATURE_EXTRACTION_DIAMOND
+	if (pcSlice->getSliceType() != I_SLICE)
+	{
+		const CPelBuf orgPel = pcSlice->getPic()->getOrigBuf(COMPONENT_Y);
+		const CPelBuf refPel = pcSlice->getRefPic(REF_PIC_LIST_0, 0)->getRecoBuf(COMPONENT_Y);
+		int diamondLocations[9][2] = { {0,0}, {0,2}, {1,1} , {2,0}, {1,-1}, {0,-2}, {-1,-1}, {-2,0}, {-1,1} };
+		int diamondLocationsSmall[4][2] = { {0,1}, {1,0}, {-1,0}, {0,-1}};
+
+
+		Mv* mvArray = pcSlice->getPic()->getMvArray();
+		int* sadArray = pcSlice->getPic()->getSADErr();
+		int distScale = (pcSlice->getPOC() - pcSlice->getRefPic(REF_PIC_LIST_0, 0)->getPOC());
+		int ht = pcPic->lheight();
+		int wd = pcPic->lwidth();
+		Mv* mvPtr;
+		int* sadPtr;
+
+		auto meError = [&](int xOrg ,int yOrg, int xRef, int yRef)
+		{
+			double absSum = 0.0;
+			for (int yy = 0; yy < 4; yy++)
+			{
+				for (int xx = 0; xx < 4; xx++)
+				{
+					const Pel* ptrOrg = orgPel.bufAt(xOrg + xx, yOrg + yy);
+					const Pel* ptrRef = refPel.bufAt(xRef + xx, yRef + yy);
+					absSum += abs(*ptrOrg - *ptrRef);
+				}
+			}
+			return absSum;
+		};
+
+		
+		for (int yOrg = 0; yOrg < ht; yOrg = yOrg + 4)
+		{
+			for (int xOrg = 0; xOrg < wd; xOrg = xOrg + 4)
+			{
+				int x = 0, y = 0, bestX = 0, bestY = 0, prevBestX = 0, prevBestY = 0;
+				double minSum = MAX_DOUBLE;
+				bool testNext = true;
+				int iter = 0; 
+				int p = 64;
+				int prevDiamondLoc[9][2] = { {p,p}, {p,p}, {p,p} , {p,p}, {p,p}, {p,p}, {p,p}, {p,p}, {p,p} };
+				do
+				{
+					prevBestX = bestX;  prevBestY = bestY;
+					x = bestX; y = bestY;
+					int currDiamondLoc[9][2] = { {0,0}, {0,0}, {0,0} , {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0} };
+
+					for (int i = 0; i < 9; i++)
+					{
+						int mvX = (x + diamondLocations[i][0]);
+						int mvY = (y + diamondLocations[i][1]);
+						int xRef = xOrg + (mvX) * distScale;
+						int yRef = yOrg + (mvY) * distScale;
+
+						currDiamondLoc[i][0] = mvX;
+						currDiamondLoc[i][1] = mvY;
+
+						bool boundary = xRef < -(maxCUWidth + 16) || (xRef > (wd + maxCUWidth + 12));
+						boundary = boundary || (yRef < -(maxCUHeight + 16) || (yRef > (ht + maxCUHeight + 12)));
+
+						bool limit = mvX < -p || mvX > p;
+						limit = limit || mvY < -p || mvY > p;
+
+						if (boundary || limit)
+						{
+							continue;
+						}
+
+						bool foundMatch = false;
+						if (iter)
+						{
+							for (int ii = 0; ii < 9; ii++)
+							{
+								if ((mvX == prevDiamondLoc[ii][0]) && (mvY == prevDiamondLoc[ii][1]))
+								{
+									foundMatch = true;
+									break;
+								}
+							}
+						}
+
+						if (foundMatch)
+							continue;
+
+						double cost = meError(xOrg, yOrg, xRef, yRef);
+						if (minSum > cost)
+						{
+							minSum = cost;
+							bestX = mvX;
+							bestY = mvY;
+						}
+					}
+					if (prevBestX == bestX && prevBestY == bestY)
+						testNext = false;
+					
+					if (testNext)
+					{
+						for (int ii = 0; ii < 9; ii++)
+						{
+							prevDiamondLoc[ii][0] = currDiamondLoc[ii][0];
+							prevDiamondLoc[ii][1] = currDiamondLoc[ii][1];
+						}
+					}
+					iter++;
+					//std::cout << "(x,y):" << xOrg <<"," << yOrg << " (bestX, bestY):" << bestX << "," << bestY << " error:" << minSum << std::endl;
+
+				} while (testNext);
+
+
+				x = bestX; y = bestY;
+				for (int i = 0; i < 4; i++)
+				{
+					int xRef = xOrg + (x + diamondLocationsSmall[i][0]) * distScale;
+					int yRef = yOrg + (y + diamondLocationsSmall[i][1]) * distScale;
+
+					double cost = meError(xOrg, yOrg, xRef, yRef);
+					if (minSum > cost)
+					{
+						minSum = cost;
+						bestX = (x + diamondLocationsSmall[i][0]);
+						bestY = (y + diamondLocationsSmall[i][1]);
+					}
+				}
+
+				//std::cout << "\\Final (x,y):" << xOrg << "," << yOrg << " (bestX, bestY):" << bestX << "," << bestY << " error:" << minSum << std::endl;
+				
+				mvPtr = mvArray + (yOrg / 4) * (wd / 4) + (xOrg / 4);
+				(*mvPtr).setHor(bestX); (*mvPtr).setVer(bestY);
+				sadPtr = sadArray + (yOrg / 4) * (wd / 4) + (xOrg / 4);
+				(*sadPtr) = (int)minSum;
+			}
+		}
+	}
+
+#else
+	if (pcSlice->getSliceType() != I_SLICE)
+	{
+		const CPelBuf orgPel = pcSlice->getPic()->getOrigBuf(COMPONENT_Y);
+		const CPelBuf refPel = pcSlice->getRefPic(REF_PIC_LIST_0, 0)->getRecoBuf(COMPONENT_Y);
+		Mv* mvArray = pcSlice->getPic()->getMvArray();
+		int distScale = (pcSlice->getPOC() - pcSlice->getRefPic(REF_PIC_LIST_0, 0)->getPOC());
+		double sumX = 0, squaredSumX = 0, sumY = 0, squaredSumY = 0;
+		int ht = pcPic->lheight();
+		int wd = pcPic->lwidth();
+		Mv* mvPtr;
+		for (int y = 0; y < ht; y = y + 4)
+		{
+			for (int x = 0; x < wd; x = x + 4)
+			{
+				int p = 7;
+				int minSum = MAX_INT;
+				int bestX = -p, bestY = -p;
+				mvPtr = mvArray + (y / 4) * (wd / 4) + (x / 4);
+				for (int j = -p; j <= p; j++)
+				{
+					for (int i = -p; i <= p; i++)
+					{
+						int absSum = 0;
+						for (int yy = 0; yy < 4; yy++)
+						{
+							for (int xx = 0; xx < 4; xx++)
+							{
+								const Pel* ptrOrg = orgPel.bufAt(x + xx, y + yy);
+								const Pel* ptrRef = refPel.bufAt(x + i * distScale + xx, y + j * distScale + yy);
+								absSum = abs(*ptrOrg - *ptrRef);
+							}
+						}
+
+						if (absSum < minSum)
+						{
+							minSum = absSum;
+							bestX = i; bestY = j;
+						}
+					}
+				}
+
+				(*mvPtr).setHor(bestX); (*mvPtr).setVer(bestY);
+			}
+		}
+	}
+#endif
+#endif
+
 
     double lambda            = 0.0;
     int actualHeadBits       = 0;

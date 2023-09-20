@@ -48,6 +48,15 @@
 #include <typeinfo>
 #include <vector>
 
+#if FEATURE_TEST
+#include <iostream>
+#include <fstream>
+#endif
+
+#if FEATURE_TEST && !COLLECT_DATASET
+#include "rfTrain.h"
+#endif
+
 //////////////////////////////////////////////////////////////////////////
 // Encoder modes to try out
 //////////////////////////////////////////////////////////////////////////
@@ -74,6 +83,9 @@ enum EncTestModeType
   ETM_TRIGGER_IMV_LIST,
   ETM_IBC,    // ibc mode
   ETM_IBC_MERGE, // ibc merge mode
+#if FEATURE_TEST
+  IS_FIRST_MODE,
+#endif
   ETM_INVALID
 };
 
@@ -586,6 +598,23 @@ class EncModeCtrlMTnoRQT : public EncModeCtrl, public CacheBlkInfoCtrl
 #if REUSE_CU_RESULTS
     IS_REUSING_CU,
 #endif
+
+#if  FEATURE_TEST
+	BEST_QT_COST,
+	NO_SPLIT_FLAG,
+	QT_FLAG,
+	HOR_FLAG,
+#endif
+#if DISABLE_RF_IF_EMPTY_CU_WHEN_FULL
+	EMPTY_CU_WHEN_FULL,
+#endif
+#if FEATURE_TEST
+	IS_NON_SPLIT_INTER,
+	IS_NON_SPLIT_MERGE,
+	IS_NON_SPLIT_INTRA,
+	IS_NON_SPLIT_GEO,
+#endif
+
     NUM_EXTRA_FEATURES
   };
 
