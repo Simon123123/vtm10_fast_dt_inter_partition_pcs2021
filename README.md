@@ -1,9 +1,9 @@
 Fast Decsion Tree based Inter Partitioning of VVC (PCS 2021)
 ============================================================
 
-This is the reproduction of paper <<Fast Versatile Video Coding using Specialised Decsion Trees>> [1] by Gosala Kulupana et al. published in Picture Coding Symposium 2021. Many thanks to Mr kulupana for sharing the source code of his implementation in VTM8 with me. This serves as the stat of art comparaison in our paper 
+This is the reproduction of paper **Fast Versatile Video Coding using Specialised Decsion Trees** [1] by Gosala Kulupana et al. published in Picture Coding Symposium 2021. Many thanks to Mr kulupana for sharing the source code of his implementation in VTM8 with me. This serves as the stat of art comparaison in our paper 
 
-<<CNN-based Prediction of Partition Path for VVC Fast Inter Partitioning Using Motion Fields>> [2] currently under review of IEEE Transaction of Image Processing. Comparing to original paper, we have generated a new dataset and trained the decision tree classifers.
+**CNN-based Prediction of Partition Path for VVC Fast Inter Partitioning Using Motion Fields** [2] currently under review of IEEE Transaction of Image Processing. Comparing to original paper, we have generated a new dataset and trained the decision tree classifers.
 
 Then the proposed method and trained decision trees are integrated into VTM10. With the approvement of Kulupana, we share the dataset, trained decision tree, and all the related code in this repository. Python scripts for processing the raw data and training && pruning the decision tree are included in folder scripts.
 
@@ -114,7 +114,7 @@ the prediction of decision trees.
 
 
 
-"For reusing the code in this project, please think about citing paper [1] and [2]. Thanks!"
+**For reusing the code in this project, please think about citing paper [1] and [2]. Thanks!**
 
 
 [1] G. Kulupana, V.P. Kumar M, and S. Blasi. Fast versatile video coding
