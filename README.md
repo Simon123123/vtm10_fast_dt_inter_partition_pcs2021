@@ -61,11 +61,10 @@ For more details, refer to the CMake documentation: https://cmake.org/cmake/help
 Dataset Generation
 ------------------
 
-In the original paper, the dataset was constructed using a portion of the Common Test Condition (CTC) sequences, while the remaining sequences were used for evaluating the method. In our implementation, we choose to generate the dataset using the BVI-DVC database [3] and the Youtube UVG database [4] to assess performance on full CTC. All sequences in     
-these databases have been encoded. Data is selectively collected from certain inter frames of the encoded sequences. More precisely, we collect data from one frame every three frames for resolutions of 960x544 and 480x272. For other resolutions, we specifically collect data from frames with a POC (Picture Order Count) equal to 8, 16, 28, 42, 49. 
+In the original paper, the dataset was constructed using a portion of the Common Test Condition (CTC) sequences, while the remaining sequences were used for evaluating the method. In our implementation, we choose to generate the dataset using the BVI-DVC database [3] and the Youtube UVG database [4] to assess performance on full CTC. All sequences in these databases have been encoded. Data is selectively collected from certain inter frames of the encoded sequences. More precisely, we collect data from one frame every three frames for resolutions of 960x544 and 480x272. For other resolutions, we specifically collect data from frames with a POC (Picture Order Count) equal to 8, 16, 28, 42, 49. 
 
 To adjust the frames for data collection, please modify the "frame_collect" variable, which is defined in line 1551 and 2905 in the file EncModeCtrl.cpp. The collected features are stored in two generated csv files, namely "split_cost_yuvname.csv" and "split_features_yuvname.csv". To generate the dataset, please run the encoding with the macro COLLECT_DATASET
-activated, which can be found in line 68 of the file TypeDef.h. After obtaining the csv files, you will need several Python scripts to process the collected data.
+activated, which can be found in line 68 of the file "TypeDef.h". After obtaining the csv files, you will need several Python scripts to process the collected data.
 
 
 
