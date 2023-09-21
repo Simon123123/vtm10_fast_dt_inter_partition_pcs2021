@@ -61,44 +61,49 @@ For more details, refer to the CMake documentation: https://cmake.org/cmake/help
 Dataset Generation
 ------------------
 
-In original paper, the dataset is built on a part of Common Test Condition (CTC) sequences while the rest of sequences is used for evaluating the method. In our implementation, we choose to generate the dataset on BVI-DVC database [3] and Youtube UVG database [4] to evaluate the performance on full CTC. All sequences in     
-these databases are encoded. Data are selectively collected on some inter frames of encoded sequences. More precisely, we collect data on one frame every three frames for resolution 960x544 and 480x272. For other resolutions, we specifically collect the frames with POC equal to 8, 16, 28, 42, 49. 
+In the original paper, the dataset was constructed using a portion of the Common Test Condition (CTC) sequences, while the remaining sequences were used for evaluating the method. In our implementation, we choose to generate the dataset using the BVI-DVC database [3] and the Youtube UVG database [4] to assess performance on full CTC. All sequences in     
+these databases have been encoded. Data is selectively collected from certain inter frames of the encoded sequences. More precisely, we collect data from one frame every three frames for resolutions of 960x544 and 480x272. For other resolutions, we specifically collect data from frames with a POC (Picture Order Count) equal to 8, 16, 28, 42, 49. 
 
-To adjust the frames for the collection of data, please modify the "frame_collect" variable defined in line 1551 and 2905 in file EncModeCtrl.cpp. The collected features are stored in two generated csv files, namely "split_cost_yuvname.csv" and "split_features_yuvname.csv". For generating the dataset, please run the encoding with macro COLLECT_DATASET
-activated in line 68 of file TypeDef.h. After obtaining the csv files, several python scripts are needed to process the collected data.
+To adjust the frames for data collection, please modify the "frame_collect" variable, which is defined in line 1551 and 2905 in the file EncModeCtrl.cpp. The collected features are stored in two generated csv files, namely "split_cost_yuvname.csv" and "split_features_yuvname.csv". To generate the dataset, please run the encoding with the macro COLLECT_DATASET
+activated, which can be found in line 68 of the file TypeDef.h. After obtaining the csv files, you will need several Python scripts to process the collected data.
 
 
-1. Firstly, the script sep_frames.py is executed to seperate collected data by frames. For 4k resolution, the frame level data is then split by rows after the execution of script sep_rows.py. The split of large data file facilates the multi-processing of files.
 
-2. Then we execute the script feature_ext.py to extract the features for QT/MT decision and for Hor/Ver decision respectively for each data file.
 
-3. Finally the feature files are merged per CU size and per decision. We have randomly selected equal number of samples for each decision.
 
-The scripts for above steps are provided in folder script/processing. Finally, a dataset containing 21 numpy files is generated. If you seek for details about the format of data in this datase, please refer to the code and original paper. 
+1. Firstly, the script sep_frames.py is executed to seperate the collected data by frames. For 4k resolution, the frame-level data is then split by rows after running the script sep_rows.py. Splitting the large data file facilitates the multiprocessing of files.
+
+2. Then we execute the script feature_ext.py to extract the features for QT/MT decisions and for Horzontal/Vertical decisions, respectively, for each data file.
+
+3. Finally the feature files are merged per CU size and per decision. An equal number of samples for each decision has been randomly selected.
+
+
+The scripts for the above steps are provided in the "script/processing" folder. Finally, a dataset containing 21 numpy files is generated. If you are looking for details about the data format in this dataset, please refer to the code and the original paper. 
+
 
 Here is our dataset: https://1drv.ms/f/s!Aoi4nbmFu71Hgn0gvFYstymDzaFN?e=o2g9km
 
 
-Training of Decision Trees 
+Training of Random Forests 
 --------------------------
 
-Each file of above dataset could be used to train a set of decision trees. For example, we use hv_16_16.npy to train the decision trees to decide to split horizontal or vertically. Consequently, we use have trained 21 random forests using sklearn library. We have took number of esimators, max depth and minimum samples of split as 40, 20 and 100 respectively.
-The trained models are stored in pickle files. Since the size of random forest models depends on the number of training samples, we have specially picked numbers of training samples for each random forest to yield models with nearly the same size as original models provided by author.
-The training of random forest models are done by running "rf_train_models_qm.py" and "rf_train_models_hv.py" in folder script/training. By executing these scripts, predictions of each decision tree in the random forest on a test set are also generated and saved.
+Each file in the dataset mentioned above can be used to train a random forest model. For example, we use "hv_16_16.npy" to train the random forest for deciding between horizontal and vertical splits. Consequently, we trained 21 random forests using the scikit-learn library. We use 40 esimators, a maximum depth of 20, and a minimum number of samples per split of 100 for training these models.
+The trained models are stored in pickle files. Since the size of random forest models depends on the number of training samples, we select a specific number of training samples for each random forest to produce models with nearly the same size as the original models provided by the author.
+The training of random forest models is performed by running "rf_train_models_qm.py" and "rf_train_models_hv.py" in the "script/training" folder. When these scripts are executed, predictions of each decision tree in the random forest on a test set are also generated and saved.
+
 
 
 
 Implementation of Decision Trees in VTM10 
 --------------------------
 
-The scripts involved in this section are in script/implementation. In the original paper, a specialised tree selection algorithm is presented. This algorithm aims at finding the best subset of decision trees in a random forest model so that the highest prediction accuracy is reached. By reusing the prediction results of decision trees obtained in the previous part, we execute the script eval_rf_models.py to evaluate the 
-performance of different subsets of decision trees. In the end, the execution of get_tree_num.py is needed to show the best subset of decision trees for each random forest model.
-
- We use the sklearn-porter library to convert the trained random forest to C code as demonstrated in convert_rf.sh. Then we copie past the C code into rfTrainHor.cpp and rfTrainHor.cpp
-as the definition of these classifiers. In the same time, the indices of decision trees of best subset are defined in file rfTrain.h. To evaluate the performance of our reproduction, you should build the project with macro COLLECT_DATASET desactivated. To regulate the level of acceleration, you should use the command line option -thdt which is a threshold for 
-the prediction of decision trees.
+The scripts involved in this section are located in the "script/implementation" directory. In the original paper, a specialised tree selection algorithm is presented. This algorithm aims to find the best subset of decision trees in a random forest model to achieve the highest prediction accuracy. By reusing the prediction results of decision trees obtained in the previous part, we execute the script "eval_rf_models.py" to evaluate the 
+performance of different subsets of decision trees. Finally, the execution of "get_tree_num.py" is necessary to determine the best subset of decision trees for each random forest model.
 
 
+
+We use the sklearn-porter library to convert the trained random forest into C code, as demonstrated in "convert_rf.sh". Then we copy and paste the C code into "rfTrainHor.cpp" and "rfTrainHor.cpp"
+as the definitions of these classifiers. At the same time, the indices of decision trees of the best subset are defined in the file "rfTrain.h". To evaluate the performance of our reproduction, you should build the project with the macro COLLECT_DATASET deactivated. To adjust the level of acceleration, you should use the command-line option "-thdt" which sets a threshold for the prediction of decision trees.
 
 
 
