@@ -1,11 +1,10 @@
 Fast Decsion Tree based Inter Partitioning of VVC (PCS 2021)
 ============================================================
 
-This is the reproduction of paper **Fast Versatile Video Coding using Specialised Decsion Trees** [1] by Gosala Kulupana et al. published in Picture Coding Symposium 2021. Many thanks to Mr kulupana for sharing the source code of his implementation in VTM8 with me. This serves as the stat of art comparaison in our paper 
+This is the reproduction of paper **Fast Versatile Video Coding using Specialised Decsion Trees** [1] by Gosala Kulupana et al. published in Picture Coding Symposium 2021. Many thanks to Mr kulupana for sharing the source code of his implementation in VTM8 with me. This serves as the stat of art comparaison in our paper **CNN-based Prediction of Partition Path for VVC Fast Inter Partitioning Using Motion Fields** [2] currently under review of IEEE Transaction of Image Processing.
 
-**CNN-based Prediction of Partition Path for VVC Fast Inter Partitioning Using Motion Fields** [2] currently under review of IEEE Transaction of Image Processing. Comparing to original paper, we have generated a new dataset and trained the decision tree classifers.
 
-Then the proposed method and trained decision trees are integrated into VTM10. With the approvement of Kulupana, we share the dataset, trained decision tree, and all the related code in this repository. Python scripts for processing the raw data and training && pruning the decision tree are included in folder scripts.
+Comparing to original paper, we have generated a new dataset and trained the decision tree classifers. Then the proposed method and trained decision trees are integrated into VTM10. With the approvement of Kulupana, we share the dataset, trained decision tree, and all the related code in this repository. Python scripts for processing the raw data and training && pruning the decision tree are included in folder scripts.
 
 
 
@@ -63,8 +62,9 @@ Dataset Generation
 ------------------
 
 In original paper, the dataset is built on a part of Common Test Condition (CTC) sequences while the rest of sequences is used for evaluating the method. In our implementation, we choose to generate the dataset on BVI-DVC database [3] and Youtube UVG database [4] to evaluate the performance on full CTC. All sequences in     
-these databases are encoded. Data are selectively collected on some inter frames of encoded sequences. More precisely, we collect data on one frame every three frames for resolution 960x544 and 480x272. For other resolutions, we specifically collect the frames with POC equal to 8, 16, 28, 42, 49. To adjust the frames to
-for the collection of data, please modify the "frame_collect" variable defined in line 1551 and 2905 in file EncModeCtrl.cpp. The collected features are stored in two generated csv files, namely "split_cost_yuvname.csv" and "split_features_yuvname.csv". For generating the dataset, please run the encoding with macro COLLECT_DATASET
+these databases are encoded. Data are selectively collected on some inter frames of encoded sequences. More precisely, we collect data on one frame every three frames for resolution 960x544 and 480x272. For other resolutions, we specifically collect the frames with POC equal to 8, 16, 28, 42, 49. 
+
+To adjust the frames for the collection of data, please modify the "frame_collect" variable defined in line 1551 and 2905 in file EncModeCtrl.cpp. The collected features are stored in two generated csv files, namely "split_cost_yuvname.csv" and "split_features_yuvname.csv". For generating the dataset, please run the encoding with macro COLLECT_DATASET
 activated in line 68 of file TypeDef.h. After obtaining the csv files, several python scripts are needed to process the collected data.
 
 
@@ -91,8 +91,10 @@ The training of random forest models are done by running "rf_train_models_qm.py"
 Implementation of Decision Trees in VTM10 
 --------------------------
 
-The scripts involved in this section is in script/implementation. In the original paper, a specialised tree selection algorithm is presented. This algorithm aims at finding the best subset of decision trees in a random forest model so that the highest prediction accuracy is reached. By reusing the prediction results of decision trees obtained in the previous part, we execute the script eval_rf_models.py to evaluate the 
-performance of different subsets of decision trees. In the end, the execution of get_tree_num.py is needed to show the best subset of decision trees for each random forest model. We use the sklearn-porter library to convert the trained random forest to C code as demonstrated in convert_rf.sh. Then we copie past the C code into rfTrainHor.cpp and rfTrainHor.cpp
+The scripts involved in this section are in script/implementation. In the original paper, a specialised tree selection algorithm is presented. This algorithm aims at finding the best subset of decision trees in a random forest model so that the highest prediction accuracy is reached. By reusing the prediction results of decision trees obtained in the previous part, we execute the script eval_rf_models.py to evaluate the 
+performance of different subsets of decision trees. In the end, the execution of get_tree_num.py is needed to show the best subset of decision trees for each random forest model.
+
+ We use the sklearn-porter library to convert the trained random forest to C code as demonstrated in convert_rf.sh. Then we copie past the C code into rfTrainHor.cpp and rfTrainHor.cpp
 as the definition of these classifiers. In the same time, the indices of decision trees of best subset are defined in file rfTrain.h. To evaluate the performance of our reproduction, you should build the project with macro COLLECT_DATASET desactivated. To regulate the level of acceleration, you should use the command line option -thdt which is a threshold for 
 the prediction of decision trees.
 
