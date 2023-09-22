@@ -5,7 +5,7 @@ This is the reproduction of paper **Fast Versatile Video Coding using Specialise
 
 
 Comparing to original paper, we have generated a new dataset and trained the decision tree classifers. Then the proposed method and trained decision trees are integrated into VTM10. With the approvement of Kulupana, we share the dataset, trained decision tree, and all the related code in this repository. Python scripts for processing the raw data and training && pruning the decision tree are included in folder scripts. The **master branch** is our reproduction of the paper while the branch 
-**original_implementation** corresponds to the souce code in VTM8 offered by the author.   
+**original_implementation** contains the souce code in VTM8 offered by the author.   
 
 
 
