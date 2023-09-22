@@ -4,7 +4,8 @@ Fast Decsion Tree based Inter Partitioning of VVC (PCS 2021)
 This is the reproduction of paper **Fast Versatile Video Coding using Specialised Decsion Trees** [1] by Gosala Kulupana et al. published in Picture Coding Symposium 2021. Many thanks to Mr kulupana for sharing the source code of his implementation in VTM8 with me. This serves as the stat of art comparaison in our paper **CNN-based Prediction of Partition Path for VVC Fast Inter Partitioning Using Motion Fields** [2] currently under review of IEEE Transaction of Image Processing.
 
 
-Comparing to original paper, we have generated a new dataset and trained the decision tree classifers. Then the proposed method and trained decision trees are integrated into VTM10. With the approvement of Kulupana, we share the dataset, trained decision tree, and all the related code in this repository. Python scripts for processing the raw data and training && pruning the decision tree are included in folder scripts.
+Comparing to original paper, we have generated a new dataset and trained the decision tree classifers. Then the proposed method and trained decision trees are integrated into VTM10. With the approvement of Kulupana, we share the dataset, trained decision tree, and all the related code in this repository. Python scripts for processing the raw data and training && pruning the decision tree are included in folder scripts. The **master branch** is our reproduction of the paper while the branch 
+**original_implementation** corresponds to the souce code in VTM8 offered by the author.   
 
 
 
@@ -77,7 +78,7 @@ activated, which can be found in line 68 of the file "TypeDef.h". After obtainin
 3. Finally the feature files are merged per CU size and per decision. An equal number of samples for each decision has been randomly selected.
 
 
-The scripts for the above steps are provided in the "script/processing" folder. Finally, a dataset containing 21 numpy files is generated. If you are looking for details about the data format in this dataset, please refer to the code and the original paper. 
+The scripts for the above steps are provided in the "scripts/processing" folder. Finally, a dataset containing 21 numpy files is generated. If you are looking for details about the data format in this dataset, please refer to the code and the original paper. 
 
 
 Here is our dataset: https://1drv.ms/f/s!Aoi4nbmFu71Hgn0gvFYstymDzaFN?e=o2g9km
@@ -88,15 +89,15 @@ Training of Random Forests
 
 Each file in the dataset mentioned above can be used to train a random forest model. For example, we use "hv_16_16.npy" to train the random forest for deciding between horizontal and vertical splits. Consequently, we trained 21 random forests using the scikit-learn library. We use 40 esimators, a maximum depth of 20, and a minimum number of samples per split of 100 for training these models.
 The trained models are stored in pickle files. Since the size of random forest models depends on the number of training samples, we select a specific number of training samples for each random forest to produce models with nearly the same size as the original models provided by the author.
-The training of random forest models is performed by running "rf_train_models_qm.py" and "rf_train_models_hv.py" in the "script/training" folder. When these scripts are executed, predictions of each decision tree in the random forest on a test set are also generated and saved.
+The training of random forest models is performed by running "rf_train_models_qm.py" and "rf_train_models_hv.py" in the "scripts/training" folder. When these scripts are executed, predictions of each decision tree in the random forest on a test set are also generated and saved.
 
 
 
 
-Implementation of Decision Trees in VTM10 
+Integration of Decision Trees in VTM10 
 --------------------------
 
-The scripts involved in this section are located in the "script/implementation" directory. In the original paper, a specialised tree selection algorithm is presented. This algorithm aims to find the best subset of decision trees in a random forest model to achieve the highest prediction accuracy. By reusing the prediction results of decision trees obtained in the previous part, we execute the script "eval_rf_models.py" to evaluate the 
+The scripts involved in this section are located in the "scripts/integration" directory. In the original paper, a specialised tree selection algorithm is presented. This algorithm aims to find the best subset of decision trees in a random forest model to achieve the highest prediction accuracy. By reusing the prediction results of decision trees obtained in the previous part, we execute the script "eval_rf_models.py" to evaluate the 
 performance of different subsets of decision trees. Finally, the execution of "get_tree_num.py" is necessary to determine the best subset of decision trees for each random forest model.
 
 
