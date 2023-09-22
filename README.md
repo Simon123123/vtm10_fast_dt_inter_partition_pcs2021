@@ -75,7 +75,7 @@ activated, which can be found in line 68 of the file "TypeDef.h". After obtainin
 
 2. Then we execute the script feature_ext.py to extract the features for QT/MT decisions and for Horzontal/Vertical decisions, respectively, for each data file.
 
-3. Finally the feature files are merged per CU size and per decision. An equal number of samples for each decision has been randomly selected.
+3. Finally the feature files are merged per CU size and per decision. An equal number of samples for each decision has been randomly selected. In this stage, we begin by running "sep_cu_sizes.py" followed by the execution of the "merge_features.py" script.
 
 
 The scripts for the above steps are provided in the "scripts/processing" folder. Finally, a dataset containing 21 numpy files is generated. If you are looking for details about the data format in this dataset, please refer to the code and the original paper. 
@@ -108,6 +108,7 @@ as the definitions of these classifiers. At the same time, the indices of decisi
 
 
 **For reusing the code in this project, please think about citing paper [1] and [2]. Thanks!**
+**If you have further questions, please contact me at liusimon0914@gmail.com.**
 
 
 [1] G. Kulupana, V.P. Kumar M, and S. Blasi. Fast versatile video coding
