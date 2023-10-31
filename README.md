@@ -115,7 +115,8 @@ as the definitions of these classifiers. At the same time, the indices of decisi
 using specialised decision trees. In 2021 Picture Coding Symposium
 (PCS), pages 1–5, 2021
 
-[2] .....
+[2]  Y. Liu, M. Riviere, T. Guionnet, A. Roumy, and C.Guillemot. CNN-based Prediction of Partition Path for VVC Fast Inter Partitioning Using Motion Fields. ArXiv, abs/2310.13838. 
+(cf. https://arxiv.org/abs/2310.13838) 
 
 [3] D. Ma, F. Zhang, and D.R. Bull. Bvi-dvc: A training database for deep
 video compression. IEEE Transactions on Multimedia, 24:3847–3858,
