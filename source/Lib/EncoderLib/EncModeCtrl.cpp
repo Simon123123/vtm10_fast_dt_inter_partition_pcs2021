@@ -1548,7 +1548,7 @@ bool EncModeCtrlMTnoRQT::tryMode( const EncTestMode& encTestmode, const CodingSt
   {
 
 #if COLLECT_DATASET
-    bool frame_collect =  ((cs.slice->getPOC() % 3 == 0) && (cs.slice->getPic()->lheight() == 544 || cs.slice->getPic()->lheight() == 240)) || ((cs.slice->getPic()->lheight() == 1088 || cs.slice->getPic()->lheight() == 2176 || cs.slice->getPic()->lheight() == 720) && (cs.slice->getPOC() == 8 || cs.slice->getPOC() == 16 || cs.slice->getPOC() == 28 || cs.slice->getPOC() == 42 || cs.slice->getPOC() == 49 || cs.slice->getPOC() == 57));
+    bool frame_collect =  ((cs.slice->getPOC() % 3 == 0) && (cs.slice->getPic()->lheight() == 544 || cs.slice->getPic()->lheight() == 272)) || ((cs.slice->getPic()->lheight() == 1088 || cs.slice->getPic()->lheight() == 2176 || cs.slice->getPic()->lheight() == 720) && (cs.slice->getPOC() == 8 || cs.slice->getPOC() == 16 || cs.slice->getPOC() == 28 || cs.slice->getPOC() == 42 || cs.slice->getPOC() == 49 || cs.slice->getPOC() == 57));
 
     if (cs.slice->getSliceType() != I_SLICE && frame_collect && cs.treeType != TREE_C)
 #else
